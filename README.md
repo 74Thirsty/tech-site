@@ -22,44 +22,40 @@ Copy `.env.example` to `.env.local` and configure:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `NEXT_PUBLIC_SITE_URL` | No | Site URL (e.g. https://yoursite.vercel.app) |
 | `NEXT_PUBLIC_SUPABASE_URL` | No | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase service role key |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Supabase anonymous (public) key |
+| `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase service_role key |
 | `RESEND_API_KEY` | No | Resend email API key |
 | `GEMINI_API_KEY` | Yes | Google Gemini API key for SEO analysis |
 | `PEXELS_API_KEY` | No | Pexels API key for article images |
-| `STRIPE_SECRET_KEY` | No | Stripe payment processing |
+| `STRIPE_SECRET_KEY` | No | Stripe secret key (sk_live_...) |
+| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret |
 | `CRON_SECRET` | No | Secret for scheduled job authentication |
 | `DISCORD_WEBHOOK_URL` | No | Discord notification webhook |
+| `NEWSLETTER_FROM` | No | Newsletter sender email (default: signal@neon-forge.dev) |
 
-## Article Images (Pexels)
+## Article Page Layout
 
-Articles automatically fetch hero images from Pexels based on topic keywords.
+Articles at `/vault/[slug]` render with a rich visual layout:
 
-### Generate images for all articles
+1. **Hero image** — Pexels image matched to article category, displayed below title/excerpt
+2. **Mermaid diagram** — Category-specific chart inserted at ~33% of body content
+   - BLOCKCHAIN: Token flow graph
+   - SECURITY: Attack vector flowchart
+   - AI: Agent interaction sequence diagram
+   - LINUX: System architecture diagram
+   - SYSTEMS: Data pipeline flowchart
+   - PRIVACY: Encrypted handshake sequence
+3. **Second image** — Pexels image matched to article tags, at ~66%
+4. **Footer banner** — Animated SVG with glowing NEON//FORGE logo, social links (GitHub, X, LinkedIn, Discord), and donate button
+
+### Article Images (Pexels)
+
+Articles automatically fetch two images from Pexels: a hero image by category and a mid-article image by tags.
 
 ```bash
 npm run generate-images
-```
-
-### Generate images via API
-
-```bash
-# Generate images for all articles missing images
-curl -X POST http://localhost:3000/api/images/generate
-
-# Generate image for a specific article
-curl -X POST http://localhost:3000/api/images/generate \
-  -H "Content-Type: application/json" \
-  -d '{"slug":"flash-loan-architecture"}'
-```
-
-### Search images manually
-
-```bash
-curl -X POST http://localhost:3000/api/images/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"blockchain security"}'
 ```
 
 ## SEO Optimization (Gemini-Powered)
@@ -215,4 +211,5 @@ src/
 - **Payments**: Stripe
 - **AI**: Google Gemini 2.0 Flash
 - **Images**: Pexels API
+- **Diagrams**: Mermaid.js
 - **Styling**: Custom CSS with CRT/terminal aesthetic

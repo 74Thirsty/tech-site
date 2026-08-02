@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { searchPexels } from "@/lib/pexels";
 
 export async function POST(request: Request) {
+  const user = requireAuth(request);
+  if (user instanceof Response) return user;
+
   const body = await request.json().catch(() => ({}));
   if (typeof body.query !== "string" || body.query.length < 2) {
     return NextResponse.json({ error: "query string required" }, { status: 400 });

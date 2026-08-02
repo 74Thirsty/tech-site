@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { findBestImage } from "@/lib/pexels";
 import { saveImage, loadImages } from "@/content/image-store";
 import articles from "@/content/articles.json";
@@ -6,6 +7,9 @@ import articles from "@/content/articles.json";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const user = requireAuth(request);
+  if (user instanceof Response) return user;
+
   const body = await request.json().catch(() => ({}));
   const targetSlug = typeof body.slug === "string" ? body.slug : null;
 

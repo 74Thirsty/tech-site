@@ -56,3 +56,29 @@ export async function findBestImage(topics: string[], title: string): Promise<Pe
   }
   return null;
 }
+
+export interface ArticleImages {
+  hero: PexelsImage | null;
+  mid: PexelsImage | null;
+}
+
+export async function getArticleImages(
+  slug: string,
+  category: string,
+  tags: string[],
+  title: string,
+): Promise<ArticleImages> {
+  try {
+    const heroQuery = `${category.toLowerCase()} technology`;
+    const heroResults = await searchPexels(heroQuery, 3);
+    const hero = heroResults.length > 0 ? heroResults[0] : null;
+
+    const midQuery = tags.length > 0 ? tags[0].toLowerCase() : category.toLowerCase();
+    const midResults = await searchPexels(midQuery, 3);
+    const mid = midResults.length > 0 ? midResults[0] : null;
+
+    return { hero, mid };
+  } catch {
+    return { hero: null, mid: null };
+  }
+}

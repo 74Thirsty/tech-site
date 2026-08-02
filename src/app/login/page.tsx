@@ -26,8 +26,8 @@ export default function LoginPage() {
           const result = await response.json();
           setMessage(result.message ?? result.error ?? "Transmission accepted.");
         }}>
-          {mode === "signup" && <input name="username" defaultValue="uber" placeholder="username" required />}
-          <input name="email" type="email" defaultValue="phoneshax@proton.me" placeholder="email@somewhere.com" required />
+          {mode === "signup" && <input name="username" placeholder="username" required />}
+          <input name="email" type="email" placeholder="email@somewhere.com" required />
           <input name="password" type="password" placeholder="password" required />
           <button className="button button-primary" type="submit">
             {mode === "login" ? "Access profile →" : "Initialize profile →"}

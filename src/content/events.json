@@ -1,0 +1,23 @@
+[
+  {
+    "date": "2026-08-18",
+    "title": "DeFi Arbitrage Deep Dive",
+    "location": "Chicago / IL",
+    "type": "WORKSHOP",
+    "status": "OPEN"
+  },
+  {
+    "date": "2026-09-15",
+    "title": "Building Recon Frameworks in Python",
+    "location": "ONLINE / SIGNAL ROOM",
+    "type": "LIVE SESSION",
+    "status": "OPEN"
+  },
+  {
+    "date": "2026-10-04",
+    "title": "Blockchain Security Fundamentals",
+    "location": "Des Moines / IA",
+    "type": "WORKSHOP",
+    "status": "OPEN"
+  }
+]

@@ -1,0 +1,2 @@
+import type { NewsletterIssue } from "./types";
+export function summarizeAnalytics(issues:NewsletterIssue[]) { return {subscribers:0,openRate:issues.length ? Math.round(issues.reduce((sum, issue) => sum + issue.openRate, 0) / issues.length) : 0,clickRate:issues.length ? Math.round(issues.reduce((sum, issue) => sum + issue.clickRate, 0) / issues.length) : 0,revenue:issues.reduce((sum, issue) => sum + issue.revenue, 0)}; }

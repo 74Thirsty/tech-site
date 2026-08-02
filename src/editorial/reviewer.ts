@@ -1,0 +1,1 @@
+export function reviewDraft(draft:string){const issues:string[]=[];if(draft.length<300)issues.push("Draft needs more original detail.");if(!draft.includes("SECURITY"))issues.push("Add security considerations.");return {score:Math.max(0,100-issues.length*20),issues};}

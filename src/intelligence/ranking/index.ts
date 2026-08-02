@@ -1,0 +1,3 @@
+import type { IntelligenceItem, ScoredOpportunity } from "@/intelligence/types";
+import { audienceFit } from "./audience-fit";import { relevance } from "./relevance";import { trendScore } from "./trend-score";
+export function rankOpportunities(items:IntelligenceItem[]):ScoredOpportunity[]{return items.map((item)=>{const scores={relevance:relevance(item),audience:audienceFit(item),timing:trendScore(item),business:Math.min(100,40+(item.topics.includes("SECURITY")?25:0))};const priority=Math.round((scores.relevance+scores.audience+scores.timing+scores.business)/4);return {...item,scores,priority,recommendation:priority >= 75 ? "ARTICLE + NEWSLETTER + SOCIAL" : "WATCHLIST"};}).sort((a,b)=>b.priority-a.priority);}

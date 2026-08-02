@@ -1,0 +1,1 @@
+export async function publishDiscord(message:string){if(!process.env.DISCORD_WEBHOOK_URL)return {sent:false,reason:"DISCORD_WEBHOOK_URL is not configured"};const response=await fetch(process.env.DISCORD_WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:message})});return {sent:response.ok};}

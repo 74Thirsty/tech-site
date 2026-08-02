@@ -1,0 +1,2 @@
+import type { ArticlePlan } from "@/editorial/types";import { buildNewsletterSection } from "@/distribution/newsletter-builder";
+export function assembleNewsletter(plan:ArticlePlan){return {sections:[buildNewsletterSection(plan),{name:"THE PATCH",whatHappened:"Security updates are reviewed in the lab.",whyItMatters:"Small fixes compound into resilient systems.",yourMove:"Run one check against your own stack."},{name:"THE UPGRADE",whatHappened:"A related field guide is waiting in the Vault."}],status:"NEEDS_REVIEW" as const};}

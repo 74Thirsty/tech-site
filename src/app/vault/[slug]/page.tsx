@@ -1,0 +1,6 @@
+import { articles } from "@/lib/content";
+import { notFound } from "next/navigation";
+
+export function generateStaticParams(){return articles.map((article)=>({slug:article.slug}));}
+
+export default async function ArticlePage({params}:{params:Promise<{slug:string}>}){const {slug}=await params;const article=articles.find((item)=>item.slug===slug);if(!article)notFound();return <main className="subpage"><header className="site-header"><a className="brand" href="/"><span className="brand-mark">N</span><span>NEON<span className="brand-slash">//</span>FORGE</span></a><a className="text-link" href="/vault">← Vault</a></header><article className="article-page"><div className="card-kicker">{article.category} / {article.difficulty} / +{article.xp} XP</div><h1>{article.title}</h1><p className="article-lede">{article.excerpt}</p>{article.body ? <div className="article-content" dangerouslySetInnerHTML={{ __html: article.body }} /> : <div className="article-body"><h2>WHY IT MATTERS</h2><p>This field note is part of the Neon//Forge archive. The full editorial and technical walkthrough will be published here as the knowledge base expands.</p><h2>YOUR MOVE</h2><p>Open a terminal, test one idea, and return with a sharper question.</p></div>}</article></main>}

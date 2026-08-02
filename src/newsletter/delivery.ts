@@ -1,0 +1,2 @@
+import { env } from "@/lib/env";
+export async function deliverNewsletter(to:string[],subject:string,html:string){if(!env.resendApiKey)return {sent:false,reason:"RESEND_API_KEY is not configured"};const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${env.resendApiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from:env.newsletterFrom,to,subject,html})});if(!response.ok)throw new Error(`Newsletter delivery failed: ${response.status}`);return {sent:true};}

@@ -1,0 +1,23 @@
+[
+  {
+    "slug": "defi-engineering",
+    "title": "DeFi Engineering Field Notes",
+    "format": "FIELD GUIDE",
+    "description": "Practical architecture patterns from building autonomous arbitrage systems. Graph algorithms, flash loans, and atomic execution.",
+    "cta": "Preview chapter"
+  },
+  {
+    "slug": "security-automation",
+    "title": "Security Automation with Python",
+    "format": "WORKBOOK",
+    "description": "Building reconnaissance frameworks, OSINT pipelines, and network analysis tools from scratch.",
+    "cta": "Join the waitlist"
+  },
+  {
+    "slug": "linux-systems",
+    "title": "Linux Systems for Builders",
+    "format": "FIELD GUIDE",
+    "description": "Hardening, monitoring, packaging, and deployment. The operational layer every engineer needs.",
+    "cta": "Preview chapter"
+  }
+]

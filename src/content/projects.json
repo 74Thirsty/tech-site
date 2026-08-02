@@ -1,0 +1,114 @@
+[
+  {
+    "name": "VANTAGE",
+    "status": "ACTIVE",
+    "type": "DEFI ARBITRAGE ENGINE",
+    "description": "Graph-driven autonomous arbitrage platform. Discovers, validates, and executes profitable multi-hop trading opportunities across heterogeneous decentralized exchanges using RPZE streaming path expansion and Bellman-Ford negative cycle detection.",
+    "stack": ["PYTHON", "SOLIDITY", "ETHEREUM", "NETWORKX", "FLASHBOTS", "GNOSIS SAFE"],
+    "steps": ["PROTOCOL ADAPTERS", "MARKET GRAPH", "ARBITRAGE DISCOVERY", "CYCLE VALIDATION", "ATOMIC EXECUTION"]
+  },
+  {
+    "name": "ATOMIC EXECUTION SYSTEM",
+    "status": "ACTIVE",
+    "type": "MEV EXECUTION INFRASTRUCTURE",
+    "description": "Execution layer for high-frequency DeFi arbitrage. Handles trade sequencing, atomic settlement, and private transaction submission through Flashbots with custody-first design and ephemeral contract deployment.",
+    "stack": ["PYTHON", "SOLIDITY", "FLASHBOTS", "ETHEREUM", "ML SCORING"],
+    "steps": ["LOAN MANAGER", "TRADE MANAGER", "ARBITRAGE MANAGER", "EXECUTION MANAGER", "BLOCKCHAIN LAYER"]
+  },
+  {
+    "name": "RECON",
+    "status": "SHIPPED",
+    "type": "CYBERSECURITY INTELLIGENCE",
+    "description": "Standalone reconnaissance framework. Zero third-party Python dependencies. Portable AppImage distribution with built-in dependency detection, target profiling, Nmap integration, DNS intelligence, and OSINT workflows.",
+    "stack": ["PYTHON", "NMAP", "OSINT", "LINUX", "APPIMAGE"],
+    "steps": ["TARGET PROFILING", "NETWORK SCANNING", "DNS INTELLIGENCE", "OSINT WORKFLOWS", "REPORT GENERATION"]
+  },
+  {
+    "name": "appImager",
+    "status": "SHIPPED",
+    "type": "LINUX PACKAGING TOOL",
+    "description": "Lightweight AppImage packaging utility. Converts applications, scripts, and binaries into portable Linux AppImage bundles with interactive wizard, AppStream metadata, and desktop launcher creation.",
+    "stack": ["BASH", "LINUX", "APPIMAGE", "APPSTREAM"],
+    "steps": ["INPUT DETECTION", "APPDIR CREATION", "METADATA GENERATION", "ICON HANDLING", "PORTABLE OUTPUT"]
+  },
+  {
+    "name": "AI_AMANDA_B2",
+    "status": "EXPLORING",
+    "type": "AI ASSISTANT PLATFORM",
+    "description": "AI-driven assistant architecture for intelligent automation. Processes user input through an AI reasoning layer, coordinates tasks, and extends software workflows through agent-oriented design.",
+    "stack": ["AI", "AUTOMATION", "AGENT ARCHITECTURE", "HCI"],
+    "steps": ["USER REQUEST", "AI REASONING", "ACTION LAYER", "EXTERNAL SYSTEMS"]
+  },
+  {
+    "name": "ALPHA_INDICATOR",
+    "status": "EXPLORING",
+    "type": "MARKET ANALYTICS",
+    "description": "Quantitative market analysis tooling. Ingests market data, processes time-series features, calculates indicators, and generates signals for trading decision support.",
+    "stack": ["PYTHON", "TIME-SERIES", "QUANTITATIVE", "DATA ANALYSIS"],
+    "steps": ["DATA INGESTION", "FEATURE PROCESSING", "INDICATOR CALCULATION", "SIGNAL GENERATION"]
+  },
+  {
+    "name": "WALLET",
+    "status": "EXPLORING",
+    "type": "BLOCKCHAIN TOOLING",
+    "description": "Blockchain account management and transaction preparation. Handles key management, address derivation, cryptographic signing, and RPC communication across Ethereum networks.",
+    "stack": ["PYTHON", "ETHEREUM", "CRYPTOGRAPHY", "RPC"],
+    "steps": ["KEY MANAGEMENT", "WALLET ENGINE", "TX BUILDER", "BLOCKCHAIN RPC"]
+  },
+  {
+    "name": "VAULT",
+    "status": "EXPLORING",
+    "type": "ASSET CUSTODY",
+    "description": "Secure asset management infrastructure. Authorization-layered custody model for protected blockchain asset storage with permission management and security boundaries.",
+    "stack": ["PYTHON", "SECURITY", "CUSTODY", "ACCESS CONTROL"],
+    "steps": ["ASSETS", "VAULT CONTROLLER", "AUTHORIZATION", "SECURE STORAGE"]
+  },
+  {
+    "name": "getBytecode",
+    "status": "EXPLORING",
+    "type": "ETHEREUM INSPECTION",
+    "description": "Retrieves and analyzes deployed smart contract information. Pulls runtime bytecode, deployment data, and on-chain metadata for security analysis and contract verification.",
+    "stack": ["PYTHON", "ETHEREUM", "SOLIDITY", "RPC"],
+    "steps": ["CONTRACT ADDRESS", "RPC PROVIDER", "BYTECODE RETRIEVAL", "ANALYSIS"]
+  },
+  {
+    "name": "rf-jam-replay",
+    "status": "RESEARCH",
+    "type": "WIRELESS SECURITY",
+    "description": "Radio frequency analysis and signal replay research tooling. Explores wireless protocol behavior, packet capture, and RF experimentation for hardware security research.",
+    "stack": ["RF", "WIRELESS", "HARDWARE", "SECURITY"],
+    "steps": ["SIGNAL CAPTURE", "PROTOCOL ANALYSIS", "REPLAY TESTING", "SECURITY ASSESSMENT"]
+  },
+  {
+    "name": "sysmon",
+    "status": "SHIPPED",
+    "type": "SYSTEM MONITORING",
+    "description": "System visibility and monitoring utility. Collects CPU, memory, process, and network metrics from Linux systems with operational dashboard output.",
+    "stack": ["LINUX", "MONITORING", "SYSTEMS", "METRICS"],
+    "steps": ["OS DATA", "COLLECTORS", "METRICS", "DASHBOARD"]
+  },
+  {
+    "name": "cryptoticker",
+    "status": "EXPLORING",
+    "type": "MARKET DATA",
+    "description": "Cryptocurrency market information and monitoring. Real-time price retrieval, asset tracking, and market data presentation across exchanges.",
+    "stack": ["PYTHON", "CRYPTO", "MARKET DATA", "API"],
+    "steps": ["MARKET DATA", "PRICE RETRIEVAL", "ASSET TRACKING", "DISPLAY"]
+  },
+  {
+    "name": "gitHelper",
+    "status": "SHIPPED",
+    "type": "DEVELOPER TOOLING",
+    "description": "Automates repetitive Git workflows. Commits, branch management, repository checks, and developer productivity automation.",
+    "stack": ["BASH", "GIT", "AUTOMATION", "DEVELOPER TOOLS"],
+    "steps": ["INPUT", "GIT OPERATIONS", "REPOSITORY CHECKS", "OUTPUT"]
+  },
+  {
+    "name": "deploy",
+    "status": "EXPLORING",
+    "type": "INFRASTRUCTURE",
+    "description": "Deployment workflow automation. Environment preparation, application deployment, and infrastructure consistency across targets.",
+    "stack": ["DEVOPS", "AUTOMATION", "DEPLOYMENT", "INFRASTRUCTURE"],
+    "steps": ["SOURCE", "BUILD", "DEPLOYMENT", "RUNNING SYSTEM"]
+  }
+]

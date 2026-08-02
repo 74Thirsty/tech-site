@@ -1,0 +1,2 @@
+import type { ScoredOpportunity } from "@/intelligence/types";import type { ArticlePlan } from "./types";
+export function planArticle(item:ScoredOpportunity):ArticlePlan{return {title:item.title,angle:`What this means for builders: ${item.summary}`,audience:item.topics.join(" / "),sections:["WHY IT MATTERS","HOW IT WORKS","IMPLEMENTATION","SECURITY CONSIDERATIONS","RESOURCES"],sourceUrls:[item.url],status:"DRAFT"};}

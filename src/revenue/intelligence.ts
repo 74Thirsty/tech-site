@@ -1,0 +1,4 @@
+import { supabaseRequest } from "@/lib/supabase";
+export type RevenueRow={slug:string;views:number;subscribers:number;purchases:number;revenue:number};
+export function rankRevenue(rows:RevenueRow[]){return rows.map((row)=>({...row,conversionRate:row.views?Math.round(row.purchases/row.views*10000)/100:0})).sort((a,b)=>b.revenue-a.revenue);}
+export async function loadRevenueIntelligence(){const rows=await supabaseRequest<RevenueRow[]>("content_revenue?select=slug,views,subscribers,purchases,revenue&order=revenue.desc");const ranked=rankRevenue(rows??[]);const leader=ranked[0];return {rows:ranked,insight:leader?`Create an advanced product around ${leader.slug}; it is your highest-revenue content.` : "Collect conversion events before making a revenue recommendation.",confidence:leader?Math.min(99,60+Math.round(leader.conversionRate)):0};}

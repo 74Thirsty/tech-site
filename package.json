@@ -1,0 +1,27 @@
+{
+  "name": "neon-forge",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "generate-images": "npx tsx scripts/generate-images.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "next": "14.2.31",
+    "openai": "^6.49.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.31",
+    "typescript": "5.7.3"
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { articles, projects } from "@/lib/content";
+import { articles, githubRepos } from "@/lib/content";
 
 export default function Home() {
   const [crt, setCrt] = useState(true);
@@ -12,7 +12,7 @@ export default function Home() {
     <section className="signal-strip"><div><span className="strip-label">CRYSTAL // FORGE DIRECTORY</span><strong>Choose your route.</strong></div><div className="strip-meta">04 DESTINATIONS <span>→</span> LIVE</div></section>
     <section className="directory page-grid"><div className="section-label"><span>01</span><span>ACCESS<br />DIRECTORY</span></div><div className="directory-grid"><DirectoryCard number="01" title="PROJECTS" description="Systems, experiments, and architecture built in the open." href="/projects" /><DirectoryCard number="02" title="BOOKS" description="Field guides and notebooks for technically curious builders." href="/books" /><DirectoryCard number="03" title="THE SIGNAL" description="Newsletter, podcast, and weekly transmissions." href="/newsletter" /><DirectoryCard number="04" title="THE VAULT" description="Articles, tutorials, missions, and the knowledge archive." href="/vault" /></div></section>
     <section className="section page-grid home-latest"><div className="section-label"><span>02</span><span>LATEST<br />TRANSMISSION</span></div><div className="section-body"><div className="section-intro"><h2>Signal in<br /><em>the noise.</em></h2><a className="text-link" href="/vault">Open the vault <span>↗</span></a></div><div className="notes-list">{articles.slice(0,2).map((article) => <a className="note" href={`/vault/${article.slug}`} key={article.slug}><span className="note-date">{article.category} / {article.readTime}</span><strong>{article.title}</strong><span className="note-arrow">↗</span></a>)}</div></div></section>
-    <section className="home-projects page-grid"><div className="section-label"><span>03</span><span>ACTIVE<br />SYSTEMS</span></div><div className="section-body"><div className="section-intro"><h2>Proof over<br /><em>promises.</em></h2><a className="text-link" href="/projects">View all projects <span>↗</span></a></div><div className="project-list">{projects.slice(0,2).map((project,index) => <a className="project-card" href={`/projects#${project.name.toLowerCase().replaceAll(" ","-")}`} key={project.name}><div className="project-number">0{index+1}</div><div><div className="card-kicker">{project.type}</div><h3>{project.name}<span>↗</span></h3><p>{project.description}</p></div><div className="card-index">[ OPEN ]</div></a>)}</div></div></section>
+    <section className="home-projects page-grid"><div className="section-label"><span>03</span><span>ACTIVE<br />SYSTEMS</span></div><div className="section-body"><div className="section-intro"><h2>Proof over<br /><em>promises.</em></h2><a className="text-link" href="/projects">View all projects <span>↗</span></a></div><div className="project-list">{githubRepos.slice(0,2).map((repo,index) => <a className="project-card" href={`/projects#gh-${repo.name.toLowerCase().replaceAll(" ","-")}`} key={repo.name}><div className="project-number">0{index+1}</div><div><div className="card-kicker">{repo.language} / {repo.status}</div><h3>{repo.name}<span>↗</span></h3><p>{repo.description}</p></div><div className="card-index">[ OPEN ]</div></a>)}</div></div></section>
     <footer className="site-footer"><a className="brand" href="#top"><span className="brand-mark">N</span><span>STRATAGEM</span></a><span>© 2026 CHRIS HIRSCHAUER</span></footer>
   </main>;
 }

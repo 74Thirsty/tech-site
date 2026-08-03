@@ -1,5 +1,33 @@
 [
   {
+    "name": "tx-forensics",
+    "version": "0.1.0",
+    "description": "Transaction Forensics TUI — analyze traces for balance divergence & more",
+    "url": "https://pypi.org/project/tx-forensics/",
+    "repoUrl": "https://github.com/74Thirsty"
+  },
+  {
+    "name": "cloudchain-cli",
+    "version": "0.1.1",
+    "description": "Deterministic Google Drive backup manager with chained accounts and encrypted state",
+    "url": "https://pypi.org/project/cloudchain-cli/",
+    "repoUrl": "https://github.com/74Thirsty/cloudchain-cli"
+  },
+  {
+    "name": "gnoman-cli",
+    "version": "0.3.3",
+    "description": "GNOMAN mission control CLI for Safes, secrets, and guard rails",
+    "url": "https://pypi.org/project/gnoman-cli/",
+    "repoUrl": "https://github.com/74Thirsty/gnoman-cli"
+  },
+  {
+    "name": "sprouter",
+    "version": "0.1.4",
+    "description": "Simple Python project bootstrapper with virtualenv and pip automation",
+    "url": "https://pypi.org/project/sprouter/",
+    "repoUrl": "https://github.com/74Thirsty"
+  },
+  {
     "name": "hirschauers-protocol-registry-wizard",
     "version": "0.1.0",
     "description": "Textual TUI for designing protocol registry entries with hard guardrails",

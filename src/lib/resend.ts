@@ -9,7 +9,7 @@ export async function sendSubscriberConfirmation(email: string) {
     [
       {
         name: "TRANSMISSION RECEIVED",
-        whatHappened: "Your subscription to Neon//Forge has been received.",
+        whatHappened: "Your subscription to Crystal // Forge has been received.",
         whyItMatters: "You'll receive one concise dispatch every Sunday covering systems, security, and field-tested ideas for builders.",
         yourMove: "Keep an eye on your inbox. The first signal lands this Sunday.",
       },

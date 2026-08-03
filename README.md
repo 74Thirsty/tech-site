@@ -1,4 +1,4 @@
-# NEON//FORGE
+# Stratagem
 
 Phase 1 foundation for Chris Hirschauer's technology platform: a dark, editorial landing experience built around field notes, selected work, a knowledge vault, and the weekly Signal newsletter.
 
@@ -48,7 +48,7 @@ Articles at `/vault/[slug]` render with a rich visual layout:
    - SYSTEMS: Data pipeline flowchart
    - PRIVACY: Encrypted handshake sequence
 3. **Second image** — Pexels image matched to article tags, at ~66%
-4. **Footer banner** — Animated SVG with glowing NEON//FORGE logo, social links (GitHub, X, LinkedIn, Discord), and donate button
+4. **Footer banner** — Animated SVG with glowing Crystal // Forge logo, social links (GitHub, X, LinkedIn, Discord), and donate button
 
 ### Article Images (Pexels)
 

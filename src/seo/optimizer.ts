@@ -19,7 +19,7 @@ export function optimizeSeo(input: {
   return {
     primaryKeyword,
     secondaryKeywords: input.topics.slice(1),
-    title: `${input.title} | NEON//FORGE`,
+    title: `${input.title} | Stratagem`,
     description,
     slug,
     score,
@@ -72,7 +72,7 @@ function mergeWithGemini(base: SeoAnalysis, gemini: GeminiSeoResult): SeoAnalysi
   if (gemini.keywordDensity < 1) issues.push("Primary keyword density is too low. Use it more naturally.");
   if (gemini.keywordDensity > 4) issues.push("Primary keyword density is too high. Reduce keyword stuffing.");
   if (description.length < 100) issues.push("Meta description should explain the reader outcome.");
-  if (gemini.suggestedTitle !== base.title.replace(" | NEON//FORGE", "")) {
+  if (gemini.suggestedTitle !== base.title.replace(" | Stratagem", "")) {
     issues.push(`Consider title: "${gemini.suggestedTitle}"`);
   }
 
@@ -81,7 +81,7 @@ function mergeWithGemini(base: SeoAnalysis, gemini: GeminiSeoResult): SeoAnalysi
   return {
     primaryKeyword,
     secondaryKeywords,
-    title: `${gemini.suggestedTitle} | NEON//FORGE`,
+    title: `${gemini.suggestedTitle} | Stratagem`,
     description,
     slug: base.slug,
     score,

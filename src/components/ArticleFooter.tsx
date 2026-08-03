@@ -5,7 +5,7 @@ export default function ArticleFooter() {
         className="footer-banner-svg"
         viewBox="0 0 800 200"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="NEON//FORGE footer banner"
+        aria-label="Crystal // Forge footer banner"
       >
         <defs>
           <filter id="glow">
@@ -33,7 +33,7 @@ export default function ArticleFooter() {
 
         {/* Company name */}
         <text x="400" y="70" textAnchor="middle" className="banner-brand" filter="url(#glow)">
-          NEON<span className="banner-slash">//</span>FORGE
+          CRYSTAL<span className="banner-slash">//</span>FORGE
         </text>
         <text x="400" y="95" textAnchor="middle" className="banner-tagline">
           Build. Ship. Repeat.

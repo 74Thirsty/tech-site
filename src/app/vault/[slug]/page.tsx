@@ -44,7 +44,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       <header className="site-header">
         <a className="brand" href="/">
           <span className="brand-mark">N</span>
-          <span>NEON<span className="brand-slash">//</span>FORGE</span>
+          <span>STRATAGEM</span>
         </a>
         <a className="text-link" href="/vault">← Vault</a>
       </header>
@@ -91,7 +91,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         ) : (
           <div className="article-body">
             <h2>WHY IT MATTERS</h2>
-            <p>This field note is part of the Neon//Forge archive. The full editorial and technical walkthrough will be published here as the knowledge base expands.</p>
+            <p>This field note is part of the Crystal // Forge archive. The full editorial and technical walkthrough will be published here as the knowledge base expands.</p>
             <h2>YOUR MOVE</h2>
             <p>Open a terminal, test one idea, and return with a sharper question.</p>
           </div>

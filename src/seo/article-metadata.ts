@@ -12,7 +12,7 @@ export function generateArticleMetadata(article: {
   const url = `${env.siteUrl}/articles/${article.slug}`;
 
   return {
-    title: `${article.title} | NEON//FORGE`,
+    title: `${article.title} | Stratagem`,
     description: article.excerpt.slice(0, 155),
     alternates: { canonical: url },
     openGraph: {
@@ -20,7 +20,7 @@ export function generateArticleMetadata(article: {
       title: article.title,
       description: article.excerpt,
       url,
-      siteName: "NEON//FORGE",
+      siteName: "Stratagem",
       ...(image && {
         images: [
           {

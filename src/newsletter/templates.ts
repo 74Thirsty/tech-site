@@ -9,7 +9,7 @@ export type NewsletterSection = {
 
 export const newsletterTemplate = {
   preheader: "A concise dispatch for the technically curious.",
-  sender: "NEON//FORGE",
+  sender: "Crystal // Forge",
   senderUrl: "https://neon-forge.dev",
   sections: [
     "THE SIGNAL",
@@ -144,7 +144,7 @@ ${sectionHtml}
 <tr>
 <td style="padding-top:24px;">
 <p style="margin:0;font-size:12px;line-height:1.6;color:${newsletterTemplate.colors.muted};font-family:${newsletterTemplate.fonts.mono};">
-You received this transmission from NEON//FORGE.<br>
+You received this transmission from Crystal // Forge.<br>
 One concise dispatch every Sunday.<br>
 ${newsletterTemplate.senderUrl}
 </p>

@@ -42,7 +42,7 @@ export default function LoginPage() {
       <div className="auth-card">
         <a className="brand" href="/">
           <span className="brand-mark">N</span>
-          <span>NEON<span className="brand-slash">//</span>FORGE</span>
+          <span>STRATAGEM</span>
         </a>
         <div className="card-kicker">USERNAME / {mode.toUpperCase()}</div>
         <h1>{mode === "login" ? "WELCOME BACK." : "CREATE ACCOUNT."}</h1>

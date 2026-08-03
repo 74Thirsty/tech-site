@@ -1,6 +1,6 @@
-# NEON//FORGE Admin Guide
+# Stratagem Admin Guide
 
-Complete reference for managing the Neon//Forge platform.
+Complete reference for managing the Crystal // Forge platform.
 
 ---
 
@@ -104,8 +104,8 @@ The timeline shows recent system actions and their results.
 | `/vault/[slug]` | `src/app/vault/[slug]/page.tsx` | SSG | Individual article view with `generateStaticParams` |
 | `/projects` | `src/app/projects/page.tsx` | Server | "War Room" — 14 projects with architecture steps, tech stacks, status |
 | `/books` | `src/app/books/page.tsx` | Server | 3 books/field guides with cover art and CTAs |
-| `/newsletter` | `src/app/newsletter/page.tsx` | Client | "The Signal" signup form + podcast episode listing |
-| `/podcast` | `src/app/podcast/page.tsx` | Server | Redirects to `/newsletter` |
+| `/newsletter` | `src/app/newsletter/page.tsx` | Client | "The Signal" signup form + podcast episode listing with Listen links to `/podcast#ep-{number}` |
+| `/podcast` | `src/app/podcast/page.tsx` | Server | Podcast episodes listing with deep-link anchors (`#ep-001`, etc.) |
 | `/events` | `src/app/events/page.tsx` | Server | 3 upcoming events with registration buttons |
 | `/control` | `src/app/control/page.tsx` | Client | **Protected** admin dashboard |
 | `/login` | `src/app/login/page.tsx` | Client | Login/signup form |
@@ -166,7 +166,7 @@ Articles at `/vault/[slug]` render with a rich visual layout:
    - SYSTEMS: Data pipeline flowchart
    - PRIVACY: Encrypted handshake sequence
 3. **Second image** — Pexels image matched to article tags, at ~66%
-4. **Footer banner** — Animated SVG with glowing NEON//FORGE logo, social links (GitHub, X, LinkedIn, Discord), and donate button
+4. **Footer banner** — Animated SVG with glowing Crystal // Forge logo, social links (GitHub, X, LinkedIn, Discord), and donate button
 
 #### Layout Components
 
@@ -320,6 +320,18 @@ The newsletter uses a dark-themed HTML email template with inline CSS (email-cli
 - Accent: `#00ff88`
 - Sections: THE SIGNAL, THE PATCH, THE UPGRADE
 - Supports preheader text and unsubscribe links
+
+### Podcast Page
+
+`/podcast` renders all episodes from `src/content/podcast.json`. Each episode card has:
+
+- Episode number, title, date, duration
+- Summary text
+- Anchor `id="ep-{number}"` for deep-linking from the newsletter page
+
+"Listen" links on `/newsletter` point to `/podcast#ep-{number}` to land on the specific episode.
+
+"Read the archive" link on `/newsletter` points to `/vault`.
 
 ---
 
@@ -565,7 +577,7 @@ curl -X POST http://localhost:3000/api/seo \
 {
   "primaryKeyword": "blockchain",
   "secondaryKeywords": ["defi"],
-  "title": "Article Title | NEON//FORGE",
+  "title": "Article Title | Stratagem",
   "description": "Optimized meta description",
   "slug": "article-title",
   "score": 85,

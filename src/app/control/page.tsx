@@ -7,15 +7,16 @@ type State={issue:{id:string;subject:string;topics:string[]}|null;queue:QueueIte
 export default function ControlCenter(){
   const [state,setState]=useState<State|null>(null);
   const [busy,setBusy]=useState("");
+  const [error,setError]=useState("");
   const [generatingArticles,setGeneratingArticles]=useState(false);
   
-  const refresh=async()=>setState(await fetch("/api/control").then((response)=>response.json()));
+  const refresh=async()=>{try{const response=await fetch("/api/control");const data=await response.json();if(!response.ok){setError(JSON.stringify(data));setState(null);return;}setError("");setState(data);}catch(e:any){setError(e.message);setState(null);}};
   useEffect(()=>{refresh()},[]);
   
   const action=async(actionName:string,id?:string)=>{
     setBusy(actionName);
-    const next=await fetch("/api/control",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:actionName,id})}).then((response)=>response.json());
-    setState(next);
+    const response=await fetch("/api/control",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:actionName,id})});
+    if(response.ok){setState(await response.json());}
     setBusy("");
   };
 
@@ -32,11 +33,11 @@ export default function ControlCenter(){
     }
   };
 
-  if(!state)return <main className="control-page"><div className="auth-page">Loading command center...</div></main>;
+  if(!state)return <main className="control-page"><div className="auth-page">{error ? <pre style={{color:"red",whiteSpace:"pre-wrap"}}>{error}</pre> : "Loading command center..."}</div></main>;
   
   return <main className="control-page">
     <header className="site-header">
-      <a className="brand" href="/"><span className="brand-mark">N</span><span>NEON<span className="brand-slash">//</span>FORGE</span></a>
+      <a className="brand" href="/"><span className="brand-mark">N</span><span>STRATAGEM</span></a>
       <span className="card-kicker">CONTROL CENTER / LIVE</span>
       <a className="text-link" href="/">Return to arcade ↗</a>
     </header>

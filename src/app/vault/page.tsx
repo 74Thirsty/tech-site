@@ -21,7 +21,7 @@ export default async function VaultPage() {
   return (
     <main className="subpage">
       <header className="site-header">
-        <a className="brand" href="/"><span className="brand-mark">N</span><span>STRATAGEM</span></a>
+        <a className="brand" href="/"><img className="brand-mark" src="/favicon.png" alt="Stratagem" width="26" height="26" /><span>STRATAGEM</span></a>
         <a className="text-link" href="/">← Home</a>
       </header>
       <section className="subpage-hero">

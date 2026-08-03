@@ -41,7 +41,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <div className="auth-card">
         <a className="brand" href="/">
-          <span className="brand-mark">N</span>
+          <img className="brand-mark" src="/favicon.png" alt="Stratagem" width="26" height="26" />
           <span>STRATAGEM</span>
         </a>
         <div className="card-kicker">USERNAME / {mode.toUpperCase()}</div>

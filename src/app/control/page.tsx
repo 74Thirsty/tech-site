@@ -70,7 +70,7 @@ export default function ControlCenter() {
   return (
     <main className="control-page">
       <header className="site-header">
-        <a className="brand" href="/"><span className="brand-mark">N</span><span>STRATAGEM</span></a>
+        <a className="brand" href="/"><img className="brand-mark" src="/favicon.png" alt="Stratagem" width="26" height="26" /><span>STRATAGEM</span></a>
         <span className="card-kicker">CONTROL CENTER / LIVE</span>
         <a className="text-link" href="/">Return to arcade ↗</a>
       </header>

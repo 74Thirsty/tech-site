@@ -60,7 +60,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     <main className="subpage">
       <header className="site-header">
         <a className="brand" href="/">
-          <span className="brand-mark">N</span>
+          <img className="brand-mark" src="/favicon.png" alt="Stratagem" width="26" height="26" />
           <span>STRATAGEM</span>
         </a>
         <a className="text-link" href="/vault">← Vault</a>

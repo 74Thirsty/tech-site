@@ -65,18 +65,18 @@ Access at `/control` (protected — redirects to `/login` if unauthenticated).
 
 | Metric | Description |
 |--------|-------------|
-| ARTICLES | Total articles in the vault |
+| ARTICLES | Total articles in the vault + generation run count |
 | PROJECTS | Total projects in the war room |
 | BOOKS | Total books and field guides |
-| LAST RESEARCH | Timestamp of last research run |
+| RESEARCH | Number of research runs completed + last run date |
 
 ### Actions
 
 | Button | Action | Description |
 |--------|--------|-------------|
-| `Run research →` | `research` | Triggers intelligence collectors to gather new opportunities |
-| `Generate articles →` | `generate-all` | Generates content for all articles |
-| `Generate newsletter →` | `generate` | Creates a newsletter draft from current content |
+| `Run research →` | `research` | Runs full intelligence pipeline (GitHub, HN, CVE, crypto collectors). Returns scored opportunities. |
+| `Generate 4 articles →` | `generate-articles` | Runs research, selects 4 unique topics, generates full articles, stores in Supabase with staggered `published_at` dates across the week. |
+| `Generate newsletter guide →` | `generate` | Creates a premium educational guide (NOT article format). Rotates through 6 templates: NIDS setup, Ethereum node, CI/CD pipeline, Home Assistant, Git mastery, Kubernetes hardening. |
 
 ### Queue Management
 
@@ -89,7 +89,19 @@ Click `APPROVE ↗` on any item to approve it.
 
 ### Timeline
 
-The timeline shows recent system actions and their results.
+The timeline shows recent system actions and their results, including:
+- Research run results (opportunity count, error count)
+- Article generation results (article count, status)
+- Newsletter draft generation
+- Approval events
+
+### Article Generation Status
+
+Below the main controls, the dashboard shows recent article generation runs with:
+- Number of articles generated
+- Timestamp
+- Status (COMPLETE/FAILED)
+- Error count if any
 
 ---
 
@@ -100,13 +112,13 @@ The timeline shows recent system actions and their results.
 | Route | File | Type | Description |
 |-------|------|------|-------------|
 | `/` | `src/app/page.tsx` | Client | Homepage — CRT toggle, hero, directory cards, latest articles, active projects, footer |
-| `/vault` | `src/app/vault/page.tsx` | Server | Article listing with category, difficulty, XP |
-| `/vault/[slug]` | `src/app/vault/[slug]/page.tsx` | SSG | Individual article view with `generateStaticParams` |
-| `/projects` | `src/app/projects/page.tsx` | Server | "War Room" — 14 projects with architecture steps, tech stacks, status |
-| `/books` | `src/app/books/page.tsx` | Server | 3 books/field guides with cover art and CTAs |
-| `/newsletter` | `src/app/newsletter/page.tsx` | Client | "The Signal" signup form + podcast episode listing with Listen links to `/podcast#ep-{number}` |
-| `/podcast` | `src/app/podcast/page.tsx` | Server | Podcast episodes listing with deep-link anchors (`#ep-001`, etc.) |
-| `/events` | `src/app/events/page.tsx` | Server | 3 upcoming events with registration buttons |
+| `/vault` | `src/app/vault/page.tsx` | Server (dynamic) | Article listing — shows static articles + published generated articles filtered by `published_at` |
+| `/vault/[slug]` | `src/app/vault/[slug]/page.tsx` | Server (dynamic) | Individual article view — checks static articles first, falls back to Supabase |
+| `/projects` | `src/app/projects/page.tsx` | Server | "War Room" — GitHub, npm, PyPI, Docker Hub registries |
+| `/books` | `src/app/books/page.tsx` | Server | 9 real books with Apple Books links and cover art |
+| `/newsletter` | `src/app/newsletter/page.tsx` | Client | "The Signal" signup form + podcast listing |
+| `/podcast` | `src/app/podcast/page.tsx` | Server | Podcast episodes (currently forthcoming) |
+| `/events` | `src/app/events/page.tsx` | Server | Upcoming events |
 | `/control` | `src/app/control/page.tsx` | Client | **Protected** admin dashboard |
 | `/login` | `src/app/login/page.tsx` | Client | Login/signup form |
 
@@ -120,23 +132,31 @@ The timeline shows recent system actions and their results.
 | `/api/analytics` | POST | None | Record analytics event to Supabase |
 | `/api/search` | GET | None | Search articles, projects, books |
 | `/api/checkout` | POST | None | Create Stripe checkout session |
-| `/api/webhooks/stripe` | POST | Stripe sig | Stripe webhook handler (6 event types) |
+| `/api/webhooks/stripe` | POST | Stripe sig | Stripe webhook handler |
 | `/api/control` | GET/POST | **Protected** | Control center state and actions |
-| `/api/articles/generate` | POST | **Protected** | Generate article content (single or all) |
+| `/api/articles/generate` | POST | **Protected** | Generate 4 articles from research |
 | `/api/agents` | POST | **Protected** | Run all 4 content agents in sequence |
-| `/api/operator` | POST | **Protected** | Get today's recommendation based on audience profile |
+| `/api/operator` | POST | **Protected** | Get today's recommendation |
 | `/api/images/search` | POST | **Protected** | Search Pexels for images |
 | `/api/images/generate` | POST | **Protected** | Auto-generate hero images for articles |
 | `/api/seo` | POST | **Protected** | Gemini-powered SEO analysis |
 | `/api/jobs/research` | GET/POST | CRON_SECRET | Scheduled research job (Vercel cron: Monday 13:00 UTC) |
+| `/api/jobs/generate-articles` | GET | CRON_SECRET | Auto-generate articles (Vercel cron: daily 10:00 UTC) |
 
 ---
 
 ## Article Management
 
-### Article Structure
+### Two Sources of Articles
 
-Articles are stored in `src/content/articles.json`:
+1. **Static articles** — 16 hand-crafted articles in `src/content/articles.json`, bundled at build time
+2. **Generated articles** — Created by the "Generate 4 articles" button, stored in Supabase `articles` table with `published_at` scheduling
+
+The vault listing merges both sources. Generated articles only appear after their `published_at` date.
+
+### Static Article Structure
+
+Articles in `src/content/articles.json`:
 
 ```json
 {
@@ -148,163 +168,170 @@ Articles are stored in `src/content/articles.json`:
   "xp": 200,
   "excerpt": "Short description",
   "tags": ["TAG1", "TAG2"],
-  "body": "<h2>HTML content</h2>",
-  "heroImage": "https://images.pexels.com/..."
+  "body": "<h2>HTML content</h2>"
 }
 ```
+
+### Generated Article Structure
+
+Stored in Supabase `articles` table:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid | Auto-generated primary key |
+| `slug` | text | Unique identifier (NOT NULL) |
+| `title` | text | Article title (NOT NULL) |
+| `category` | text | Category tag (NOT NULL) |
+| `difficulty` | text | Difficulty level |
+| `read_time` | text | Estimated read time |
+| `xp` | integer | Experience points |
+| `excerpt` | text | Short description |
+| `body` | text | Full HTML content |
+| `published_at` | timestamptz | When the article becomes visible in the vault |
+| `tags` | text[] | Topic tags |
+| `generated_at` | timestamptz | When the article was generated |
 
 ### Article Page Layout
 
 Articles at `/vault/[slug]` render with a rich visual layout:
 
-1. **Hero image** — Pexels image matched to article category, displayed below title/excerpt
-2. **Mermaid diagram** — Category-specific chart inserted at ~33% of body content
-   - BLOCKCHAIN: Token flow graph
-   - SECURITY: Attack vector flowchart
-   - AI: Agent interaction sequence diagram
-   - LINUX: System architecture diagram
-   - SYSTEMS: Data pipeline flowchart
-   - PRIVACY: Encrypted handshake sequence
-3. **Second image** — Pexels image matched to article tags, at ~66%
-4. **Footer banner** — Animated SVG with glowing Crystal // Forge logo, social links (GitHub, X, LinkedIn, Discord), and donate button
-
-#### Layout Components
-
-| Component | File | Description |
-|-----------|------|-------------|
-| MermaidDiagram | `src/components/MermaidDiagram.tsx` | Client component, renders mermaid.js with dark theme |
-| ArticleImage | `src/components/ArticleImage.tsx` | Pexels image wrapper with photographer attribution |
-| ArticleFooter | `src/components/ArticleFooter.tsx` | Animated SVG banner with glow effect and scan line |
-| Charts | `src/lib/charts.ts` | Category → mermaid diagram mapping |
+1. **Hero image** — Pexels image matched to article category
+2. **Mermaid diagram** — Category-specific chart at ~33% of body
+3. **Second image** — Pexels image matched to article tags at ~66%
+4. **Footer banner** — Animated SVG with Crystal // Forge logo, social links, donate button
 
 #### How Body Splitting Works
 
-The page splits `article.body` HTML by counting block-level tags (`<h2>`, `<h3>`, `<p>`, `<pre>`, `<ul>`, `<ol>`, `<blockquote>`). It divides at 1/3 and 2/3 of these tags to insert the mermaid chart and second image at natural content breaks.
+The page counts block-level tags (`<h2>`, `<h3>`, `<p>`, `<pre>`, `<ul>`, `<ol>`, `<blockquote>`) and divides at 1/3 and 2/3 to insert the mermaid chart and second image.
 
-### Generating Content
+### Generating Articles
 
 #### Via Control Center
 
 1. Navigate to `/control`
-2. Click "Generate articles →"
-3. Wait for completion (processes ~1 article per 2 seconds)
-4. Check timeline for results
+2. Click "Generate 4 articles →"
+3. The system automatically:
+   - Runs the research pipeline (GitHub, HN, CVE, crypto)
+   - Selects 4 unique topics from the intelligence
+   - Generates full articles with sections: THE DEEP DIVE, PRINCIPLES, IN PRACTICE, LIVE SIGNALS, ANTIPATTERNS, CHECKLIST, YOUR MOVE
+   - Stores in Supabase with staggered `published_at` dates (today, tomorrow, day 3, day 4)
+4. Check timeline and article generation status for results
 
 #### Via API
 
 ```bash
-# Generate all articles
-curl -X POST http://localhost:3000/api/articles/generate \
+# Generate 4 articles (recommended)
+curl -X POST https://stratagemconsulting.net/api/articles/generate \
   -H "Content-Type: application/json" \
-  -d '{"action":"generate-all"}'
-
-# Generate single article
-curl -X POST http://localhost:3000/api/articles/generate \
-  -H "Content-Type: application/json" \
-  -d '{"slug":"flash-loan-architecture"}'
+  -H "Cookie: nf_access_token=<token>" \
+  -d '{"action":"generate-four"}'
 ```
 
-#### Response Format
+#### Via Cron (Automatic)
+
+Articles auto-generate daily at 10:00 UTC via Vercel cron. The job checks if fewer than 2 articles are scheduled for the next 7 days. If so, it generates 4 new articles with staggered publish dates.
 
 ```json
-{
-  "success": true,
-  "generated": 16,
-  "failed": 0,
-  "results": [
-    {"slug": "graph-arbitrage", "success": true},
-    {"slug": "atomic-execution", "success": true}
-  ]
-}
+// vercel.json
+{"crons": [
+  {"path": "/api/jobs/research", "schedule": "0 13 * * 1"},
+  {"path": "/api/jobs/generate-articles", "schedule": "0 10 * * *"}
+]}
 ```
 
-### Adding New Articles
+### Topic Selection
 
-1. Open `src/content/articles.json`
-2. Add a new object to the array:
+The topic engine (`src/articles/topics.ts`) maintains a pool of 20+ topics across categories:
 
-```json
-{
-  "slug": "my-new-article",
-  "title": "My New Article Title",
-  "category": "BLOCKCHAIN",
-  "difficulty": "INTERMEDIATE",
-  "readTime": "10 MIN",
-  "xp": 200,
-  "excerpt": "Brief description of the article.",
-  "tags": ["BLOCKCHAIN", "DEFI"],
-  "body": ""
-}
-```
+| Category | Sample Topics |
+|----------|--------------|
+| SECURITY | Zero Trust, Container Security, API Hardening, OSINT, Wireless Auditing, Incident Response |
+| BLOCKCHAIN | Smart Contract Auditing, DeFi Liquidation, Layer 2 Scaling |
+| LINUX | Home Lab, Filesystem Forensics, Privacy Desktop |
+| NETWORKING | Traffic Analysis, DNS Deep Dive |
+| PROGRAMMING | Git Advanced, Python Automation |
+| DEVOPS | CI/CD Pipeline, Ansible Automation, Kubernetes Hardening |
 
-3. Generate content via Control Center or API
-4. Rebuild the site: `npm run build`
+Topics are scored against research items by tag overlap and keyword matches. Categories are balanced (max 2 per category in a batch of 4).
+
+### Scheduled Publishing
+
+Generated articles use `published_at` to control visibility:
+- Article 1: publishes immediately (today 09:00 UTC)
+- Article 2: publishes tomorrow 09:00 UTC
+- Article 3: publishes in 2 days 09:00 UTC
+- Article 4: publishes in 3 days 09:00 UTC
+
+The vault listing filters by `published_at <= now`. Articles are always accessible by direct URL (`/vault/[slug]`).
 
 ### Article Categories
 
 | Category | Topics |
 |----------|--------|
-| BLOCKCHAIN | DeFi, smart contracts, arbitrage, MEV, flash loans |
-| SECURITY | Hardening, threat modeling, recon, OSINT |
-| LINUX | System administration, packaging, networking |
+| BLOCKCHAIN | DeFi, smart contracts, arbitrage, MEV, flash loans, Layer 2 |
+| SECURITY | Hardening, threat modeling, recon, OSINT, forensics, auditing |
+| LINUX | System administration, packaging, privacy, home lab |
 | AI | Agents, automation, architecture |
-| SYSTEMS | Infrastructure, monitoring, boring tech |
-| PRIVACY | DNS, encryption, opsec |
+| SYSTEMS | Infrastructure, monitoring, distributed systems, boring tech |
+| PRIVACY | DNS, encryption, opsec, wireless |
+| NETWORKING | Traffic analysis, protocol deep dives |
+| PROGRAMMING | Git, Python, language internals |
+| DEVOPS | CI/CD, containerization, Kubernetes, Ansible |
 
 ### Difficulty Levels
 
 | Level | Description | XP Range |
 |-------|-------------|----------|
-| BEGINNER | Accessible to newcomers | 100-150 |
-| INTERMEDIATE | Requires some experience | 170-230 |
-| ADVANCED | Deep technical content | 250-320 |
-
-### Content Focus: Crypto Drops
-
-Articles about blockchain/DeFi topics should frame price drops as:
-
-- **Buying opportunities** for long-term believers
-- **Market corrections** that healthy markets need
-- **Accumulation phases** where strong hands buy from weak hands
-- **Builder moments** to focus on development, not speculation
-- **Discount events** for quality assets
-
-Example framing:
-> "When ETH dropped 40%, it wasn't a crisis—it was a clearance sale on the world's most important programmable blockchain."
+| BEGINNER | Accessible to newcomers | 100-200 |
+| INTERMEDIATE | Requires some experience | 230-280 |
+| ADVANCED | Deep technical content | 290-380 |
 
 ---
 
 ## Newsletter Operations
 
-### The Signal
+### Premium Educational Guides
 
-The weekly newsletter dispatches to subscribers.
+The newsletter generates **premium educational guides**, NOT article-format digests. Each guide is a comprehensive walkthrough that teaches a specific skill.
+
+### Guide Templates
+
+| Template | Difficulty | Read Time |
+|----------|-----------|-----------|
+| Building a Network Intrusion Detection System | INTERMEDIATE | 45 min |
+| Deploying a Private Ethereum Node with Geth | ADVANCED | 50 min |
+| Building a Secure CI/CD Pipeline with GitHub Actions | INTERMEDIATE | 35 min |
+| Home Automation with Home Assistant | BEGINNER | 40 min |
+| Mastering Git: Basics to Advanced Workflows | BEGINNER | 30 min |
+| Kubernetes Security Hardening | ADVANCED | 45 min |
+
+### Guide Structure
+
+Each guide includes:
+- Overview
+- Architecture diagram
+- Step-by-step walkthrough with commands
+- Common mistakes
+- Troubleshooting
+- Advanced tips
+- Further reading
+- Research signals (live intelligence items)
+- Summary
 
 ### Generating a Newsletter
 
 1. Go to `/control`
-2. Click "Generate newsletter →"
-3. Review the draft in the queue
-4. Click "Approve →" to send
+2. Click "Generate newsletter guide →"
+3. Review the draft in the queue (shows title, subtitle, difficulty, read time)
+4. Click "Approve →" to approve
 
-### Manual Newsletter Generation
+### Newsletter Template
 
-```bash
-curl -X POST http://localhost:3000/api/newsletter \
-  -H "Content-Type: application/json" \
-  -d '{"action":"generate"}'
-```
-
-### Subscriber Management
-
-Subscribers are stored in Supabase `subscribers` table:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| email | string | Subscriber email |
-| source | string | `newsletter`, `book`, or `mission` |
-| created_at | timestamp | Subscription date |
-| status | string | `active` or `unsubscribed` |
+Email template (`src/newsletter/templates.ts`):
+- Background: `#0a0a0d`
+- Accent: `#00ff88`
+- Sections: THE SIGNAL, FIELD NOTE, MISSION OF THE WEEK, ONE THING TO READ, THE PATCH, THE UPGRADE
+- Supports preheader text and unsubscribe links
 
 ### Email Delivery
 
@@ -312,34 +339,11 @@ Emails are sent via Resend. Configure `RESEND_API_KEY` in `.env.local`.
 
 From address: `signal@neon-forge.dev` (configurable via `NEWSLETTER_FROM`)
 
-### Newsletter Template
-
-The newsletter uses a dark-themed HTML email template with inline CSS (email-client compatible):
-
-- Background: `#0a0a0d`
-- Accent: `#00ff88`
-- Sections: THE SIGNAL, THE PATCH, THE UPGRADE
-- Supports preheader text and unsubscribe links
-
-### Podcast Page
-
-`/podcast` renders all episodes from `src/content/podcast.json`. Each episode card has:
-
-- Episode number, title, date, duration
-- Summary text
-- Anchor `id="ep-{number}"` for deep-linking from the newsletter page
-
-"Listen" links on `/newsletter` point to `/podcast#ep-{number}` to land on the specific episode.
-
-"Read the archive" link on `/newsletter` points to `/vault`.
-
 ---
 
 ## Research Pipeline
 
 ### Intelligence Collectors
-
-The research system gathers signals from multiple sources:
 
 | Collector | Source | Data |
 |-----------|--------|------|
@@ -359,20 +363,21 @@ Click "Run research →" on the dashboard.
 #### Via API
 
 ```bash
-curl -X POST http://localhost:3000/api/control \
+curl -X POST https://stratagemconsulting.net/api/control \
   -H "Content-Type: application/json" \
+  -H "Cookie: nf_access_token=<token>" \
   -d '{"action":"research"}'
 ```
 
 #### Via Cron Job
 
-Configure in `vercel.json`:
+Vercel cron runs research every Monday at 13:00 UTC:
 
 ```json
 {
   "crons": [{
     "path": "/api/jobs/research",
-    "schedule": "0 9 * * 1"
+    "schedule": "0 13 * * 1"
   }]
 }
 ```
@@ -384,8 +389,8 @@ Set `CRON_SECRET` in environment for authentication.
 1. **Collection**: Gather raw items from all collectors in parallel
 2. **Normalization**: Standardize format and fields
 3. **Deduplication**: Remove duplicate items
-4. **Classification**: Auto-tag with taxonomy (SECURITY, AI, LINUX, BLOCKCHAIN, PROGRAMMING, HARDWARE, NETWORKING)
-5. **Ranking**: Score by relevance, audience fit, and trend signals
+4. **Classification**: Auto-tag with taxonomy
+5. **Ranking**: Score by relevance, audience fit, timing, and business value
 
 ### Topic Taxonomy
 
@@ -401,37 +406,22 @@ Set `CRON_SECRET` in environment for authentication.
 
 ---
 
-## Content Calendar
+## Cron Jobs
 
-### Planning
+Two cron jobs run automatically on Vercel:
 
-The calendar system generates editorial plans based on audience profiles.
+| Job | Schedule | Endpoint | Description |
+|-----|----------|----------|-------------|
+| Research | Monday 13:00 UTC | `/api/jobs/research` | Collects intelligence from GitHub, HN, CVE, crypto |
+| Article Generation | Daily 10:00 UTC | `/api/jobs/generate-articles` | Generates 4 articles if fewer than 2 are scheduled for next 7 days |
 
-```bash
-curl -X POST http://localhost:3000/api/operator \
-  -H "Content-Type: application/json" \
-  -d '{"topics":["BLOCKCHAIN","SECURITY"]}'
-```
+### Auto-Generation Logic
 
-Returns recommended content for the current period plus a 1-week calendar.
-
-### Content Types
-
-| Type | Frequency | Description |
-|------|-----------|-------------|
-| ARTICLE | Weekly | Technical field notes |
-| TUTORIAL | Weekly | Hands-on mission guides |
-| NEWSLETTER | Weekly | The Signal dispatch |
-| PODCAST | Weekly | The Signal Room episodes |
-
-### Mission Tracks
-
-| Track | Steps | Reward | XP |
-|-------|-------|--------|-----|
-| BLOCKCHAIN | 4 steps | CHAIN ENGINEER | 650 |
-| SECURITY | 4 steps | THREAT ANALYST | 600 |
-| LINUX | 4 steps | SYSTEMS OPERATOR | 500 |
-| AI | 4 steps | AGENT BUILDER | 550 |
+The daily article generation job:
+1. Checks Supabase for articles with `published_at` in the next 7 days
+2. If fewer than 2 are scheduled, generates 4 new articles
+3. Each article gets a `published_at` date staggered across the week
+4. No action taken if 2+ articles are already scheduled
 
 ---
 
@@ -443,44 +433,18 @@ Returns recommended content for the current period plus a 1-week calendar.
 
 When Supabase is not configured, users are stored locally in `data/users.json`:
 
-```json
-[
-  {
-    "username": "admin",
-    "email": "admin@example.com",
-    "passwordHash": "scrypt-salted-hash",
-    "salt": "random-salt"
-  }
-]
-```
-
 Password hashing: `crypto.scrypt` with random salt (N=16384, r=8, p=1). Legacy SHA-256 hashes auto-migrate on successful login.
+
+**Note**: Local auth does NOT work on Vercel (filesystem is read-only). Supabase auth is the only production path.
 
 #### Supabase Authentication
 
-When configured, users are managed through Supabase Auth.
-
-### Creating Users
-
-#### Via Login Page
-
-1. Navigate to `/login`
-2. Click "Create account"
-3. Enter email and password
-4. Account is created
-
-#### Via API
-
-```bash
-curl -X POST http://localhost:3000/api/auth \
-  -H "Content-Type: application/json" \
-  -d '{"action":"signup","email":"user@example.com","password":"securepassword","username":"username"}'
-```
+When configured, users are managed through Supabase Auth. The login page sends JSON to `/api/auth`, which calls Supabase `/auth/v1/token?grant_type=password`.
 
 ### Session Management
 
-- **Session cookie**: `nf_session` (HMAC-SHA256 signed, 8-hour expiry)
-- **Supabase token**: `nf_access_token` (fallback when Supabase is configured)
+- **Supabase token**: `nf_access_token` (primary in production)
+- **Session cookie**: `nf_session` (HMAC-SHA256 signed, 8-hour expiry, local auth fallback)
 - **Signing secret**: Derived from `SUPABASE_SERVICE_ROLE_KEY` > `GEMINI_API_KEY` > `CRON_SECRET` > dev fallback
 
 ### Protected Routes
@@ -498,352 +462,57 @@ curl -X POST http://localhost:3000/api/auth \
 - `/api/images/search`
 - `/api/images/generate`
 - `/api/seo`
+- `/api/jobs/generate-articles`
 
 #### Cron/Programmatic Access
 
 Pass `Authorization: Bearer <CRON_SECRET>` or `X-Cron-Secret` header to access protected endpoints.
 
-### User Roles
-
-Currently, all authenticated users have full admin access. Role-based access control is planned for a future release.
-
----
-
-## Analytics & Metrics
-
-### Event Tracking
-
-Analytics events are tracked via `/api/analytics`:
-
-```json
-{
-  "eventName": "article_view",
-  "path": "/vault/flash-loan-architecture",
-  "articleSlug": "flash-loan-architecture",
-  "metadata": {}
-}
-```
-
-### Event Types
-
-| Event | Description |
-|-------|-------------|
-| `page_view` | Page visited |
-| `article_view` | Article opened |
-| `newsletter_subscribe` | New subscriber |
-| `checkout_start` | Payment initiated |
-| `checkout_complete` | Payment completed |
-
-### Analytics Pipeline
-
-- **Collector**: `src/analytics/collector.ts` — writes events to Supabase `analytics_events`
-- **Analyzer**: `src/analytics/analyzer.ts` — scores topics by views (40%), completion (40%), conversions (20%)
-- **Recommendations**: `src/analytics/recommendations.ts` — finds strongest audience signal
-- **Reports**: `src/analytics/reports.ts` — combines ranking + insight + timestamp
-
-### Metrics Dashboard
-
-Metrics are available through the control center:
-
-- Total subscribers
-- Total newsletter issues sent
-- Revenue by content
-- Conversion rates
-
----
-
-## SEO Management
-
-### Optimizing Content
-
-```bash
-curl -X POST http://localhost:3000/api/seo \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Article Title","summary":"Article summary","topics":["BLOCKCHAIN","DEFI"]}'
-```
-
-### SEO Modules
-
-| Module | File | Description |
-|--------|------|-------------|
-| Rule-based | `src/seo/optimizer.ts` | Pattern matching and keyword analysis |
-| Gemini AI | `src/seo/ml-optimizer.ts` | AI-powered keyword extraction, scoring, meta descriptions |
-| Recommendations | `src/seo/recommendations.ts` | Actionable SEO improvement suggestions |
-| Metadata | `src/seo/article-metadata.ts` | Next.js Metadata with OpenGraph and Twitter cards |
-
-### Response Format
-
-```json
-{
-  "primaryKeyword": "blockchain",
-  "secondaryKeywords": ["defi"],
-  "title": "Article Title | Stratagem",
-  "description": "Optimized meta description",
-  "slug": "article-title",
-  "score": 85,
-  "issues": [],
-  "schema": {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": "Article Title",
-    "description": "Article summary",
-    "keywords": ["blockchain", "defi"]
-  }
-}
-```
-
-### SEO Checklist
-
-- [ ] Title is 35-60 characters
-- [ ] Meta description is 100-155 characters
-- [ ] Primary keyword appears in title
-- [ ] Secondary keywords are relevant
-- [ ] Schema markup is valid
-
----
-
-## Image Generation
-
-### Searching Pexels
-
-```bash
-curl -X POST http://localhost:3000/api/images/search \
-  -H "Content-Type: application/json" \
-  -H "Cookie: nf_session=<token>" \
-  -d '{"query":"blockchain technology","perPage":5}'
-```
-
-### Auto-Generating Hero Images
-
-```bash
-curl -X POST http://localhost:3000/api/images/generate \
-  -H "Content-Type: application/json" \
-  -H "Cookie: nf_session=<token>" \
-  -d '{}'
-```
-
-Fetches Pexels images for all articles missing a `heroImage` field. Requires `PEXELS_API_KEY`.
-
-### CLI Script
-
-```bash
-npm run generate-images
-```
-
----
-
-## Agent System
-
-Four content agents run in sequence via `/api/agents`:
-
-| Agent | File | Description |
-|-------|------|-------------|
-| Research | `src/agents/researchAgent.ts` | Opens research queue |
-| Newsletter | `src/agents/newsletterAgent.ts` | Returns newsletter draft status |
-| SEO | `src/agents/seoAgent.ts` | Metadata audit queue |
-| Social | `src/agents/socialAgent.ts` | Social derivatives queue |
-
-### Running Agents
-
-```bash
-curl -X POST http://localhost:3000/api/agents \
-  -H "Content-Type: application/json" \
-  -H "Cookie: nf_session=<token>"
-```
-
----
-
-## Operator & Recommendations
-
-The operator recommends daily actions based on audience profile and memory.
-
-```bash
-curl -X POST http://localhost:3000/api/operator \
-  -H "Content-Type: application/json" \
-  -H "Cookie: nf_session=<token>" \
-  -d '{"topics":["BLOCKCHAIN","SECURITY"],"events":[{"event":"article_view","metadata":{"articleSlug":"flash-loan-architecture"}}]}'
-```
-
-### Response
-
-```json
-{
-  "action": "Write a new BLOCKCHAIN article",
-  "reasons": ["Strongest audience signal is BLOCKCHAIN", "3 articles published this week"],
-  "estimatedImpact": "High engagement from BLOCKCHAIN audience",
-  "calendar": [...]
-}
-```
-
-### Modules
-
-- **Operator**: `src/operator/decision.ts` — `recommendToday(profile)`
-- **Calendar**: `src/calendar/planner.ts` — `buildCalendar(profile, weeks)`
-- **Evaluation**: `src/evaluation/evaluate.ts` — `evaluateDraft(draft, topics, hasProductLink)`
-- **Gates**: `src/evaluation/gates.ts` — `approvalGate(evaluation)` (passes if score >= 80)
-
----
-
-## Revenue Intelligence
-
-Revenue data is sourced from Supabase `content_revenue` table:
-
-```bash
-curl http://localhost:3000/api/seo
-```
-
-Returns ranked content by revenue performance.
-
-### Revenue Ranking
-
-- **Module**: `src/revenue/intelligence.ts`
-- **Calculation**: Conversion rates, revenue per view, revenue per subscriber
-- **Sort**: By total revenue descending
-
----
-
-## Memory System
-
-Agent memory backed by Supabase `agent_memory` table.
-
-### Memory Types
-
-| Kind | File | Description |
-|------|------|-------------|
-| AUDIENCE | `src/memory/audience-memory.ts` | Derives topic preferences, skill level, format preferences |
-| CONTENT | `src/memory/content-memory.ts` | Records published content |
-| PERFORMANCE | `src/memory/performance-memory.ts` | Records content performance (views, completion, conversions) |
-| DECISION | `src/memory/decision-memory.ts` | Records operator decisions and outcomes |
-
-### Store Operations
-
-```typescript
-import { remember, recall } from '@/memory/store';
-
-// Store a memory
-await remember({
-  kind: 'AUDIENCE',
-  key: 'user-preferences',
-  value: { topics: ['BLOCKCHAIN', 'SECURITY'] },
-  confidence: 0.8,
-  source: 'analytics'
-});
-
-// Recall memories
-const memories = await recall('AUDIENCE', 10);
-```
-
----
-
-## Distribution
-
-Multi-channel content repurposing:
-
-| Module | File | Output |
-|--------|------|--------|
-| Newsletter | `src/distribution/newsletter-builder.ts` | Newsletter sections from ArticlePlan |
-| Social | `src/distribution/social-generator.ts` | LinkedIn post, X/Twitter thread, Discord message |
-| Podcast | `src/distribution/podcast-generator.ts` | Episode outline with segments |
-| Video | `src/distribution/video-outline.ts` | Video script outline with beats |
-| Discord | `src/distribution/discord-publisher.ts` | Publish to Discord webhook |
-
----
-
-## Payments (Stripe)
-
-### Checkout
-
-```bash
-curl -X POST http://localhost:3000/api/checkout \
-  -H "Content-Type: application/json" \
-  -d '{"priceId":"price_...","email":"user@example.com"}'
-```
-
-### Webhooks
-
-Endpoint: `/api/webhooks/stripe`
-
-Handles 6 event types:
-- `checkout.session.completed`
-- `checkout.session.expired`
-- `invoice.paid`
-- `invoice.payment_failed`
-- `customer.subscription.created`
-- `customer.subscription.deleted`
-
-Requires `STRIPE_WEBHOOK_SECRET` for signature verification.
-
----
-
-## Environment Variables
-
-All managed via `src/lib/env.ts`:
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `NEXT_PUBLIC_SITE_URL` | No | Base URL (default: `http://localhost:3000`) |
-| `NEXT_PUBLIC_SUPABASE_URL` | No | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Supabase public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase service role (server-side) |
-| `RESEND_API_KEY` | No | Resend email service |
-| `GEMINI_API_KEY` | Yes | Google Gemini API key |
-| `PEXELS_API_KEY` | No | Pexels image search |
-| `STRIPE_SECRET_KEY` | No | Stripe secret key |
-| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret |
-| `CRON_SECRET` | No | Cron job + programmatic API auth |
-| `DISCORD_WEBHOOK_URL` | No | Discord incoming webhook |
-| `NEWSLETTER_FROM` | No | Sender email (default: `signal@neon-forge.dev`) |
-
-### Secrets Management
-
-- `load-env.sh` — loads secrets from KDE Wallet
-- `store-env.sh` — interactive script to store secrets into KDE Wallet
-- `npm run dev:secure` — loads secrets then starts dev server
-- `.env.local` is gitignored; production secrets live on Vercel
-
 ---
 
 ## Database Schema
 
-17 tables with RLS policies:
+### Supabase Tables
 
 | Table | Purpose |
 |-------|---------|
-| `profiles` | User profiles (linked to auth.users, XP, level) |
-| `articles` | Article content (slug, title, category, difficulty, body) |
-| `projects` | Project definitions (slug, name, status, payload JSONB) |
-| `books` | Book metadata (slug, title, purchase/sample URLs) |
-| `events` | Event listings (title, starts_at, location, status) |
-| `subscribers` | Newsletter subscribers (email, source, status) |
-| `newsletter_issues` | Newsletter issues (subject, status, content JSONB, rates, revenue) |
+| `articles` | Article content (slug, title, category, difficulty, read_time, xp, excerpt, body, published_at, tags, generated_at) |
+| `newsletter_issues` | Newsletter issues (subject, status, content JSONB) |
 | `analytics_events` | Event tracking (event_name, path, article_slug, metadata) |
-| `achievements` | Achievement definitions (slug, title, xp) |
-| `user_achievements` | User-achievement junction (with unlock timestamp) |
-| `missions` | Mission definitions (slug, track, steps JSONB, reward, xp) |
-| `job_runs` | Job execution log (job_name, status, timestamps, errors, output_count) |
 | `agent_memory` | Agent memory store (kind, key, value JSONB, confidence, source) |
-| `content_revenue` | Revenue intelligence (slug, views, subscribers, purchases, revenue) |
+| `job_runs` | Job execution log (job_name, status, timestamps, errors, output_count) |
 
-### RLS Policies
+### articles Table Columns
 
-- `profiles`: Users can read/update own profile
-- `user_achievements`: Users can read own achievements
-- `analytics_events`: Anyone can insert
+```sql
+-- Verified columns:
+id          uuid        PRIMARY KEY (auto-generated)
+slug        text        NOT NULL
+title       text        NOT NULL
+category    text        NOT NULL
+difficulty  text
+read_time   text
+xp          integer
+excerpt     text
+body        text
+published_at timestamptz
+tags        text[]      DEFAULT '{}'
+generated_at timestamptz DEFAULT now()
+```
 
-### Setup
+### Adding Columns
 
-Run `supabase/schema.sql` in a Supabase SQL project. The policies intentionally keep profile reads private while allowing anonymous analytics inserts.
+Via Supabase SQL Editor (https://supabase.com/dashboard/project/gajuziafgxnjxpfhuxgs/editor):
+
+```sql
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}';
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS generated_at timestamptz DEFAULT now();
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS published_at timestamptz;
+```
 
 ---
 
 ## API Reference
-
-### Authentication
-
-Most API endpoints require no authentication for local development. Protected endpoints require either:
-
-1. **Session cookie** (`nf_session`): Login via `/api/auth` to receive
-2. **Cron secret**: `Authorization: Bearer <CRON_SECRET>` or `X-Cron-Secret` header
 
 ### POST /api/auth
 
@@ -856,22 +525,6 @@ Authenticate user.
 {"action": "signup", "email": "...", "password": "...", "username": "..."}
 ```
 
-### GET /api/status
-
-Check integration status.
-
-**Response:**
-```json
-{
-  "supabase": false,
-  "resend": false,
-  "stripe": false,
-  "gemini": true,
-  "discord": false,
-  "scheduler": false
-}
-```
-
 ### GET /api/control
 
 Get control center state.
@@ -879,11 +532,13 @@ Get control center state.
 **Response:**
 ```json
 {
-  "issue": {...},
-  "queue": [...],
-  "timeline": [...],
-  "lastResearch": "2026-01-15T00:00:00Z",
-  "counts": {"articles": 16, "projects": 14, "books": 3}
+  "issue": {"id": "...", "subject": "THE SIGNAL / ...", "topics": [...], "estimatedReadTime": "45 MIN", "difficulty": "INTERMEDIATE"},
+  "queue": [{"id": "...", "kind": "NEWSLETTER", "title": "...", "status": "NEEDS_REVIEW", "createdAt": "..."}],
+  "timeline": ["Research complete: 28 opportunities", "Generated 4 articles from research"],
+  "lastResearch": "2026-08-03T23:00:00Z",
+  "counts": {"articles": 16, "projects": 14, "books": 8},
+  "articleGenerations": [{"id": "...", "topicCount": 4, "generatedAt": "...", "status": "COMPLETE", "errors": []}],
+  "researchRuns": 1
 }
 ```
 
@@ -895,95 +550,44 @@ Execute control action.
 ```json
 {"action": "research"}
 // or
+{"action": "generate-articles"}
+// or
 {"action": "generate"}
 // or
 {"action": "approve", "id": "newsletter-123"}
-// or
-{"action": "generate-articles"}
 ```
 
 ### POST /api/articles/generate
 
-Generate article content.
+Generate 4 articles from research.
 
 **Request:**
 ```json
-{"action": "generate-all"}
-// or
-{"slug": "article-slug"}
+{"action": "generate-four"}
 ```
-
-**Response:**
-```json
-{"success": true, "generated": 16, "failed": 0}
-```
-
-### POST /api/agents
-
-Run all 4 content agents in sequence.
 
 **Response:**
 ```json
 {
-  "results": [
-    {"agent": "research", "status": "queued"},
-    {"agent": "newsletter", "status": "needs_review"},
-    {"agent": "seo", "status": "queued"},
-    {"agent": "social", "status": "queued"}
-  ]
+  "success": true,
+  "generated": 4,
+  "failed": 0,
+  "articles": [
+    {"slug": "zero-trust-network-architecture", "title": "Zero Trust is not a product", "category": "SECURITY"},
+    {"slug": "building-home-lab", "title": "Your home lab is your training ground", "category": "LINUX"},
+    {"slug": "smart-contract-auditing", "title": "Reading Solidity like an attacker", "category": "BLOCKCHAIN"},
+    {"slug": "linux-filesystem-forensics", "title": "The filesystem remembers everything", "category": "SECURITY"}
+  ],
+  "errors": [],
+  "researchCount": 28
 }
 ```
 
-### POST /api/operator
+### GET /api/jobs/generate-articles
 
-Get today's recommendation.
+Auto-generate articles (cron). Returns skipped if 2+ articles scheduled for next 7 days, otherwise generates 4 new articles.
 
-**Request:**
-```json
-{"topics": ["BLOCKCHAIN"], "events": [{"event": "article_view", "metadata": {"articleSlug": "flash-loan-architecture"}}]}
-```
-
-### POST /api/newsletter
-
-Subscribe to newsletter or generate issue.
-
-**Request:**
-```json
-{"email": "user@example.com"}
-// or
-{"action": "generate"}
-```
-
-### POST /api/seo
-
-Analyze SEO for content.
-
-**Request:**
-```json
-{"title": "...", "summary": "...", "topics": ["..."]}
-```
-
-### POST /api/images/search
-
-Search Pexels for images.
-
-**Request:**
-```json
-{"query": "blockchain technology", "perPage": 5}
-```
-
-### POST /api/images/generate
-
-Auto-generate hero images for articles missing them.
-
-### POST /api/checkout
-
-Create Stripe checkout session.
-
-**Request:**
-```json
-{"priceId": "price_...", "email": "user@example.com"}
-```
+Requires `CRON_SECRET` for authentication.
 
 ### GET /api/jobs/research
 
@@ -1001,107 +605,86 @@ Search articles, projects, books.
 
 ## Troubleshooting
 
-### Article Generation Fails
+### Login fails on Vercel
 
-**Error:** `GEMINI_API_KEY is not configured`
+**Cause**: Local auth (`data/users.json`) doesn't work on Vercel (read-only filesystem).
 
-**Solution:** Add your Gemini API key to `.env.local`:
-```
-GEMINI_API_KEY=your-gemini-key-here
-```
+**Solution**: Ensure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set in Vercel env. Supabase auth is the only production path.
 
-### Build Errors
+### Article generation returns empty results
 
-**Error:** `Type 'X' is not assignable to type 'Y'`
+**Cause**: Research pipeline may have failed or returned no items.
 
-**Solution:** Run type checking:
-```bash
-npx tsc --noEmit
-```
+**Solution**: Check the timeline in the control center. Run "Run research →" first to populate the intelligence pipeline, then generate articles.
 
-Fix any reported type errors.
+### Generated articles don't appear in vault
 
-### Newsletter Not Sending
+**Cause**: Articles have future `published_at` dates.
 
-**Error:** `RESEND_API_KEY is not configured`
+**Solution**: Check Supabase `articles` table for `published_at` values. Articles only appear in the vault after their publish date. They are always accessible by direct URL.
 
-**Solution:** Add Resend API key to `.env.local`:
-```
-RESEND_API_KEY=re_your-key-here
-```
+### Cron job not running
 
-### Research Job Fails
+**Cause**: `CRON_SECRET` not configured in Vercel env.
 
-**Error:** `Job rate limit exceeded`
+**Solution**: Set `CRON_SECRET` in Vercel project settings > Environment Variables.
 
-**Solution:** Wait 5 minutes between research runs, or adjust rate limit in `src/lib/rate-limit.ts`.
+### Auth cookie not recognized
 
-### Content Not Updating
+**Cause**: Cookie expired (8-hour TTL) or middleware not detecting `nf_access_token`.
 
-**Issue:** Article changes don't appear on the site.
+**Solution**: Log in again via `/login`. The middleware checks for `nf_session` or `nf_access_token` cookies.
 
-**Solution:** Rebuild the site:
-```bash
-npm run build
-npm run dev
-```
+### Newsletter generation fails
 
-### Supabase Connection Issues
+**Cause**: Supabase connection issue.
 
-**Error:** `Supabase request failed: 401`
-
-**Solution:** Verify credentials in `.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-```
-
-### Image Generation Fails
-
-**Error:** `PEXELS_API_KEY is not configured`
-
-**Solution:** Add Pexels API key to `.env.local`:
-```
-PEXELS_API_KEY=your-pexels-key-here
-```
-
-### Auth Cookie Expired
-
-**Issue:** Redirected to login unexpectedly.
-
-**Solution:** Sessions expire after 8 hours. Log in again via `/login`.
+**Solution**: Check `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set.
 
 ---
 
 ## File Reference
 
+### New Files (Current Session)
+
 | File | Purpose |
 |------|---------|
-| `src/content/articles.json` | Article metadata and content |
+| `src/articles/new-generator.ts` | Generates 4 unique articles from research intelligence |
+| `src/articles/topics.ts` | Topic pool (20+ topics) with scoring and selection engine |
+| `src/newsletter/guide-generator.ts` | Premium educational guide generator (6 templates) |
+| `src/lib/generated-articles.ts` | Supabase CRUD for generated articles |
+| `src/app/api/jobs/generate-articles/route.ts` | Daily cron endpoint for auto-generation |
+
+### Core Files
+
+| File | Purpose |
+|------|---------|
+| `src/content/articles.json` | Static article metadata and content |
 | `src/content/projects.json` | Project definitions |
 | `src/content/books.json` | Book definitions |
 | `src/content/events.json` | Event definitions |
 | `src/content/podcast.json` | Podcast episode definitions |
 | `src/lib/content.ts` | Content type definitions |
-| `src/lib/auth.ts` | HMAC-SHA256 session tokens |
+| `src/lib/auth.ts` | HMAC-SHA256 session tokens, `getSessionFromRequest()`, `requireAuth()` |
 | `src/lib/local-auth.ts` | File-based auth with scrypt+salt |
 | `src/lib/supabase.ts` | Supabase REST API client |
-| `src/lib/pexels.ts` | Pexels image search + `getArticleImages()` |
-| `src/lib/charts.ts` | Category → mermaid diagram mapping |
-| `src/components/MermaidDiagram.tsx` | Client component, mermaid.js rendering |
-| `src/components/ArticleImage.tsx` | Pexels image wrapper with attribution |
-| `src/components/ArticleFooter.tsx` | Animated SVG footer banner |
-| `src/lib/resend.ts` | Resend email delivery |
-| `src/lib/metrics.ts` | Metrics from Supabase |
-| `src/lib/rate-limit.ts` | In-memory rate limiter |
+| `src/lib/pexels.ts` | Pexels image search |
 | `src/lib/env.ts` | Environment variable access |
-| `src/lib/local-store.ts` | Persistent control state |
-| `src/articles/generator.ts` | Article content generation |
-| `src/app/api/articles/generate/route.ts` | Article generation API |
-| `src/app/api/control/route.ts` | Control center API |
-| `src/app/api/newsletter/route.ts` | Newsletter API |
+| `src/articles/generator.ts` | Legacy article content generation (1125 lines, hard-coded content) |
+| `src/control/state.ts` | Control center state management |
+| `src/intelligence/pipeline.ts` | Research pipeline |
+| `src/editorial/formatter.ts` | Article HTML formatter |
+| `src/seo/optimizer.ts` | SEO analysis |
+| `src/seo/ml-optimizer.ts` | Gemini-powered SEO |
+| `src/middleware.ts` | Route protection |
+
+### API Routes
+
+| File | Purpose |
+|------|---------|
 | `src/app/api/auth/route.ts` | Authentication API |
+| `src/app/api/control/route.ts` | Control center API |
+| `src/app/api/articles/generate/route.ts` | Article generation API |
 | `src/app/api/agents/route.ts` | Agent runner API |
 | `src/app/api/operator/route.ts` | Operator recommendation API |
 | `src/app/api/seo/route.ts` | SEO analysis API |
@@ -1110,29 +693,10 @@ PEXELS_API_KEY=your-pexels-key-here
 | `src/app/api/checkout/route.ts` | Stripe checkout API |
 | `src/app/api/webhooks/stripe/route.ts` | Stripe webhook handler |
 | `src/app/api/jobs/research/route.ts` | Scheduled research job |
+| `src/app/api/jobs/generate-articles/route.ts` | Daily article auto-generation |
 | `src/app/api/search/route.ts` | Search API |
 | `src/app/api/status/route.ts` | Integration status API |
-| `src/control/state.ts` | Control center state management |
-| `src/intelligence/pipeline.ts` | Research pipeline |
-| `src/editorial/run.ts` | Editorial pipeline runner |
-| `src/editorial/formatter.ts` | Article HTML formatter |
-| `src/editorial/reviewer.ts` | Draft review |
-| `src/seo/optimizer.ts` | SEO analysis |
-| `src/seo/ml-optimizer.ts` | Gemini-powered SEO |
-| `src/memory/store.ts` | Agent memory CRUD |
-| `src/evaluation/evaluate.ts` | Content quality scoring |
-| `src/calendar/planner.ts` | Editorial calendar generation |
-| `src/operator/decision.ts` | Daily recommendation engine |
-| `src/revenue/intelligence.ts` | Revenue ranking |
-| `src/distribution/social-generator.ts` | Social media content |
-| `src/distribution/discord-publisher.ts` | Discord webhook publisher |
-| `src/middleware.ts` | Route protection |
-| `supabase/schema.sql` | Database schema |
-| `data/control-state.json` | Persistent control state |
-| `data/users.json` | Local user storage |
-| `scripts/generate-images.ts` | Pexels image fetcher |
-| `load-env.sh` | Load secrets from KDE Wallet |
-| `store-env.sh` | Store secrets to KDE Wallet |
+| `src/app/api/newsletter/route.ts` | Newsletter API |
 
 ---
 

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [message, setMessage] = useState("");
+  const router = useRouter();
 
   return (
     <main className="auth-page">
@@ -24,7 +26,12 @@ export default function LoginPage() {
             body: JSON.stringify({ action: mode, username: data.get("username"), email: data.get("email"), password: data.get("password") }),
           });
           const result = await response.json();
-          setMessage(result.message ?? result.error ?? "Transmission accepted.");
+          if (response.ok && result.ok) {
+            setMessage(result.message);
+            router.push("/control");
+            return;
+          }
+          setMessage(result.message ?? result.error ?? "Transmission failed.");
         }}>
           {mode === "signup" && <input name="username" placeholder="username" required />}
           <input name="email" type="email" placeholder="email@somewhere.com" required />

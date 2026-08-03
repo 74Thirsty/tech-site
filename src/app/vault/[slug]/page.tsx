@@ -52,6 +52,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       <article className="article-page">
         <div className="card-kicker">{article.category} / {article.difficulty} / +{article.xp} XP</div>
         <h1>{article.title}</h1>
+        <p className="article-byline">by c. e. hirschauer</p>
         <p className="article-lede">{article.excerpt}</p>
 
         {images.hero && (

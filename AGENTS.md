@@ -2,6 +2,60 @@
 
 Instruction file for OpenCode sessions working on NEON//FORGE.
 
+## Status of Progress
+
+**Last updated**: 2026-08-02
+
+### Deployment
+
+- **Platform**: Vercel (serverless)
+- **Production URL**: https://stratagemconsulting.net
+- **Vercel project**: `stratagem1/arcade-site`
+- **Deploy command**: `vercel --prod --yes`
+- **No git remote** — all deploys via Vercel CLI directly
+- **All 13 env vars are set in Vercel** (confirmed via `vercel env ls`)
+
+### What Works
+
+- Static pages: `/`, `/vault`, `/vault/[slug]`, `/projects`, `/newsletter`, `/books`, `/events`, `/podcast`
+- Article rendering: title, author byline ("by c. e. hirschauer"), hero image, mermaid chart, second image, animated SVG footer with donate button
+- API routes: `/api/status`, `/api/search` (public)
+- Vercel cron: `/api/jobs/research` runs weekly (Monday 1PM)
+- Stripe webhooks: `/api/webhooks/stripe` (functional)
+- Build passes: `npx tsc --noEmit` clean, `next build` succeeds
+
+### What's Broken (as of 2026-08-02)
+
+1. **Auth on Vercel is BROKEN** — The login page (`/login`) checks `result.ok` in the response, but Supabase auth responses do NOT have an `ok` field. They return `{ access_token, user, ... }` on success or `{ error, msg, ... }` on failure. So even when Supabase auth succeeds, the login page falls through to "Transmission failed." The `router.push("/control")` never fires.
+   - **Root cause**: Login page at `src/app/login/page.tsx:29` checks `response.ok && result.ok` — `result.ok` is always `undefined` for Supabase responses.
+   - **Fix needed**: Change the success check to `response.ok` only (Supabase returns 200 on success, 400/401 on failure). Or check for `result.access_token` instead.
+   - **NOTE**: Local auth (`data/users.json`) is NOT available on Vercel — filesystem is read-only in serverless. Supabase auth is the ONLY auth path in production.
+
+2. **Admin panel inaccessible** — `/control` is protected by middleware. Without working auth, nobody can log in to access it.
+
+3. **Article generation endpoint** — `/api/articles/generate` exists and is protected by auth. Cannot be tested until auth is fixed.
+
+4. **Research job** — `/api/jobs/research` runs on Vercel cron but results aren't visible until auth works (to see control center).
+
+### Previous Changes (this session)
+
+- Added author byline "by c. e. hirschauer" to `src/app/vault/[slug]/page.tsx`
+- Added redirect to `/control` after successful auth in `src/app/login/page.tsx` (uses `next/navigation` `useRouter`)
+- Added error handling (try/catch) to `src/app/api/auth/route.ts` for local auth failures
+- Committed and deployed: `git commit -m "fix: login redirect to /control after auth, add author byline to articles"`
+
+### Key Architectural Facts
+
+- Next.js 14.2.31 with App Router, TypeScript strict mode
+- Dual auth: local (scrypt+salt, `data/users.json`) for dev, Supabase for production
+- All API routes use `requireAuth()` from `src/lib/auth.ts` — checks `nf_session` cookie OR `nf_access_token` cookie OR `CRON_SECRET` header
+- Middleware at `src/middleware.ts` protects `/control` and 7 API routes
+- Content lives in `src/content/*.json` — static JSON files bundled at build time
+- Article body generation: `src/articles/generator.ts` (1125 lines, hard-coded content per slug)
+- Intelligence pipeline: 6 collectors (GitHub, HN, CVE, crypto, arxiv, RSS) → normalize → deduplicate → classify → rank
+- Gemini used for SEO analysis only (`src/seo/ml-optimizer.ts`)
+- No git remote configured — all deploys via `vercel --prod --yes`
+
 ## Environment Variables
 
 The canonical list is AUTHORITATIVE. Do not invent new env var names or rename existing ones.
@@ -66,6 +120,7 @@ npm run generate-images
 - **Cron/programmatic access**: Pass `Authorization: Bearer <CRON_SECRET>` or `X-Cron-Secret` header.
 - **No admin login on home page** — CONTROL links were intentionally removed from `src/app/page.tsx`.
 - **Password hashing**: `crypto.scrypt` with random salt in `src/lib/local-auth.ts`. Legacy SHA-256 hashes auto-migrate on successful login.
+- **CRITICAL: Local auth does NOT work on Vercel** — filesystem is read-only in serverless. Supabase is the ONLY auth path in production. The auth route at `src/app/api/auth/route.ts` checks `env.supabaseUrl` — if set, it uses Supabase; if not set, it falls back to local auth (which will fail on Vercel).
 
 ## Content Templates
 

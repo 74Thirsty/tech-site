@@ -26,8 +26,8 @@ export default function LoginPage() {
             body: JSON.stringify({ action: mode, username: data.get("username"), email: data.get("email"), password: data.get("password") }),
           });
           const result = await response.json();
-          if (response.ok && result.ok) {
-            setMessage(result.message);
+          if (response.ok) {
+            setMessage(result.message ?? "Access granted.");
             router.push("/control");
             return;
           }

@@ -1,0 +1,93 @@
+[
+  {
+    "name": "Atomic-Execution-System",
+    "description": "Proprietary arbitrage execution engine for high-frequency DeFi trading. Discovers opportunities, validates cycles, and executes profitably across decentralized exchanges.",
+    "url": "https://github.com/74Thirsty/Atomic-Execution-System",
+    "language": "Python",
+    "status": "ACTIVE"
+  },
+  {
+    "name": "appImager",
+    "description": "Lightweight AppImage packaging utility. Converts applications, scripts, and binaries into portable Linux AppImage bundles with interactive wizard.",
+    "url": "https://github.com/74Thirsty/appImager",
+    "language": "Shell",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "getBytecode",
+    "description": "Retrieves and analyzes deployed smart contract information. Pulls runtime bytecode, deployment data, and on-chain metadata.",
+    "url": "https://github.com/74Thirsty/getBytecode",
+    "language": "JavaScript",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "cloudchain-cli",
+    "description": "Deterministic Google Drive backup manager. Chain accounts to bypass quota limits, export encrypted app state for migration.",
+    "url": "https://github.com/74Thirsty/cloudchain-cli",
+    "language": "Python",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "gnoman-cli",
+    "description": "Gnosis Safe Management Application with built-in wallet and keyring management.",
+    "url": "https://github.com/74Thirsty/gnoman-cli",
+    "language": "Python",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "recon",
+    "description": "Automates nmap and wireshark operations. Standalone reconnaissance framework for network scanning and OSINT.",
+    "url": "https://github.com/74Thirsty/recon",
+    "language": "Python",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "phreak",
+    "description": "Android tools for security research — bypass, FRP, root, unlock, iCloud.",
+    "url": "https://github.com/74Thirsty/phreak",
+    "language": "Python",
+    "status": "ACTIVE"
+  },
+  {
+    "name": "live-usb",
+    "description": "Write Live USB Flash Drives with or without persistence.",
+    "url": "https://github.com/74Thirsty/live-usb",
+    "language": "Shell",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "alpha_indicator",
+    "description": "A modular, AI-assisted trading research engine.",
+    "url": "https://github.com/74Thirsty/alpha_indicator",
+    "language": "Python",
+    "status": "EXPLORING"
+  },
+  {
+    "name": "WalletLab",
+    "description": "Generate wallets for blockchain development and testing.",
+    "url": "https://github.com/74Thirsty/WalletLab",
+    "language": "Python",
+    "status": "EXPLORING"
+  },
+  {
+    "name": "gitboss",
+    "description": "Automates repetitive Git workflows — commits, branch management, repository checks.",
+    "url": "https://github.com/74Thirsty/gitboss",
+    "language": "Python",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "doubletalk",
+    "description": "Developer tooling and automation utilities.",
+    "url": "https://github.com/74Thirsty/doubletalk",
+    "language": "Python",
+    "status": "SHIPPED"
+  },
+  {
+    "name": "Frequency-Domain-Logic-Encoding-for-Protocol-Enforced-Systems",
+    "description": "Frequency-Domain Logic Encoding for Protocol-Enforced Systems.",
+    "url": "https://github.com/74Thirsty/Frequency-Domain-Logic-Encoding-for-Protocol-Enforced-Systems",
+    "language": "TeX",
+    "status": "RESEARCH"
+  }
+]

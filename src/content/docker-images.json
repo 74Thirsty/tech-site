@@ -1,0 +1,37 @@
+[
+  {
+    "name": "tx-forensics",
+    "description": "Dockerized toolkit for Ethereum transaction and smart-contract analysis",
+    "url": "https://hub.docker.com/r/gadgetsaavy/tx-forensics",
+    "pulls": 1240,
+    "category": "Security"
+  },
+  {
+    "name": "gnoman",
+    "description": "Master of Safes. Holder of Keys.",
+    "url": "https://hub.docker.com/r/gadgetsaavy/gnoman",
+    "pulls": 320,
+    "category": "Security"
+  },
+  {
+    "name": "sprouter",
+    "description": "Quickly scaffolds out a python package",
+    "url": "https://hub.docker.com/r/gadgetsaavy/sprouter",
+    "pulls": 305,
+    "category": "Developer Tools"
+  },
+  {
+    "name": "cloudchain-cli",
+    "description": "Chain Google Drive accounts, encrypt app state, track cloud vs local backups via CLI",
+    "url": "https://hub.docker.com/r/gadgetsaavy/cloudchain-cli",
+    "pulls": 137,
+    "category": "Databases & Storage"
+  },
+  {
+    "name": "hirschauers-protocol-registry-wizard",
+    "description": "Textual TUI for designing protocol registry entries",
+    "url": "https://hub.docker.com/r/gadgetsaavy/hirschauers-protocol-registry-wizard",
+    "pulls": 134,
+    "category": "Developer Tools"
+  }
+]

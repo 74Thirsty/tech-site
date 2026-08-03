@@ -1,0 +1,18 @@
+[
+  {
+    "name": "gnoman",
+    "version": "0.1.1",
+    "description": "GNOMAN 2.0 desktop application for managing Gnosis Safe and wallets",
+    "url": "https://www.npmjs.com/package/gnoman",
+    "weeklyDownloads": 3,
+    "keywords": ["electron", "gnosis-safe", "wallet", "ethers"]
+  },
+  {
+    "name": "destiny-engine-pwa",
+    "version": "0.1.3",
+    "description": "Destiny engine progressive web app for game analytics",
+    "url": "https://www.npmjs.com/package/destiny-engine-pwa",
+    "weeklyDownloads": 1,
+    "keywords": ["pwa", "gaming"]
+  }
+]

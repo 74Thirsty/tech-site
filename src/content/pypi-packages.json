@@ -1,0 +1,9 @@
+[
+  {
+    "name": "hirschauers-protocol-registry-wizard",
+    "version": "0.1.0",
+    "description": "Textual TUI for designing protocol registry entries with hard guardrails",
+    "url": "https://pypi.org/project/hirschauers-protocol-registry-wizard/",
+    "repoUrl": "https://github.com/stratagemresearch/protocol-registry-wizard"
+  }
+]

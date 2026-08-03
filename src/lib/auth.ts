@@ -66,10 +66,10 @@ export function getSessionFromRequest(request: Request): SessionUser | null {
   }, {});
 
   const token = cookies[SESSION_COOKIE];
-  if (!token) return null;
-
-  const user = verifySession(token);
-  if (user) return user;
+  if (token) {
+    const user = verifySession(token);
+    if (user) return user;
+  }
 
   const accessToken = cookies["nf_access_token"];
   if (accessToken) return { username: accessToken.split(".")[0] || "user" };
@@ -97,7 +97,7 @@ export function requireAuth(request: Request): SessionUser | Response {
     if (session) return session;
   }
 
-  return NextResponse.json({ error: "Unauthorized. Authenticate via /api/auth or provide CRON_SECRET." }, { status: 401 });
+  return NextResponse.json({ error: "Unauthorized. Please log in." }, { status: 401 });
 }
 
 export { SESSION_COOKIE, SESSION_DURATION };

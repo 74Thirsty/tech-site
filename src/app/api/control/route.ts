@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { getControlState, loadControlState, updateControl } from "@/control/state";
+import { getControlState, loadControlState, updateControl, recordArticleGeneration, recordResearch } from "@/control/state";
 import { runResearchJob } from "@/jobs/research-job";
-import { generateAllArticles, generateArticleBySlug } from "@/articles/generator";
+import { generateFourArticles } from "@/articles/new-generator";
 
 export async function GET(request: Request) {
   const user = requireAuth(request);
@@ -20,7 +20,8 @@ export async function POST(request: Request) {
 
   if (body.action === "research") {
     const result = await runResearchJob();
-    const state = await updateControl("research");
+    const state = await getControlState();
+    recordResearch({ outputCount: result.outputCount, errors: result.errors });
     state.timeline.unshift(
       `Research ${result.status.toLowerCase()}: ${result.outputCount} opportunities / ${result.errors.length} errors`,
     );
@@ -28,20 +29,15 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "generate-articles") {
-    if (typeof body.slug === "string") {
-      const result = await generateArticleBySlug(body.slug);
-      const state = await getControlState();
-      state.timeline.unshift(
-        result.success
-          ? `Article "${body.slug}" generated`
-          : `Failed to generate "${body.slug}": ${result.error}`,
-      );
-      return NextResponse.json(state);
-    }
-    const results = await generateAllArticles();
+    const result = await generateFourArticles();
+    recordArticleGeneration({
+      id: `gen-${Date.now()}`,
+      topicCount: result.articles.length,
+      generatedAt: new Date().toISOString(),
+      status: result.success ? "COMPLETE" : "FAILED",
+      errors: result.errors,
+    });
     const state = await getControlState();
-    const successful = results.filter((r) => r.success).length;
-    state.timeline.unshift(`Generated ${successful}/${results.length} articles`);
     return NextResponse.json(state);
   }
 

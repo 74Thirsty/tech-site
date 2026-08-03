@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { generateAllArticles, generateArticleBySlug } from "@/articles/generator";
+import { generateFourArticles } from "@/articles/new-generator";
 
 export async function POST(request: Request) {
   const user = requireAuth(request);
@@ -8,25 +8,20 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
 
-  if (typeof body.slug === "string") {
-    const result = await generateArticleBySlug(body.slug);
-    return NextResponse.json(result, { status: result.success ? 200 : 500 });
-  }
-
-  if (body.action === "generate-all") {
-    const results = await generateAllArticles();
-    const successful = results.filter((r) => r.success).length;
-    const failed = results.filter((r) => !r.success).length;
+  if (body.action === "generate-all" || body.action === "generate-four") {
+    const result = await generateFourArticles();
     return NextResponse.json({
-      success: true,
-      generated: successful,
-      failed,
-      results,
+      success: result.success,
+      generated: result.articles.length,
+      failed: result.errors.length,
+      articles: result.articles.map(a => ({ slug: a.slug, title: a.title, category: a.category })),
+      errors: result.errors,
+      researchCount: result.researchCount,
     });
   }
 
   return NextResponse.json(
-    { error: "Provide { slug: '...' } or { action: 'generate-all' }" },
+    { error: "Provide { action: 'generate-all' } or { action: 'generate-four' }" },
     { status: 400 },
   );
 }

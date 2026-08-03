@@ -10,6 +10,7 @@ const PROTECTED_APIS = [
   "/api/images/search",
   "/api/images/generate",
   "/api/seo",
+  "/api/jobs/generate-articles",
 ];
 
 export function middleware(request: NextRequest) {
@@ -30,7 +31,7 @@ export function middleware(request: NextRequest) {
   if (!isAuthenticated) {
     if (PROTECTED_APIS.some((path) => pathname.startsWith(path))) {
       return NextResponse.json(
-        { error: "Unauthorized. Authenticate via /api/auth or provide CRON_SECRET." },
+        { error: "Unauthorized. Please log in." },
         { status: 401 },
       );
     }
@@ -52,5 +53,6 @@ export const config = {
     "/api/images/search/:path*",
     "/api/images/generate/:path*",
     "/api/seo/:path*",
+    "/api/jobs/generate-articles/:path*",
   ],
 };

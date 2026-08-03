@@ -2,13 +2,12 @@ import { articles } from "@/lib/content";
 import { notFound } from "next/navigation";
 import { getChartForArticle } from "@/lib/charts";
 import { getArticleImages } from "@/lib/pexels";
+import { getGeneratedArticle } from "@/lib/generated-articles";
 import MermaidDiagram from "@/components/MermaidDiagram";
 import ArticleImage from "@/components/ArticleImage";
 import ArticleFooter from "@/components/ArticleFooter";
 
-export function generateStaticParams() {
-  return articles.map((article) => ({ slug: article.slug }));
-}
+export const dynamic = "force-dynamic";
 
 function splitBodyAtPositions(html: string): { first: string; second: string; third: string } {
   const tagPattern = /<(h[23]|p|pre|ul|ol|blockquote)[ >]/gi;
@@ -31,7 +30,25 @@ function splitBodyAtPositions(html: string): { first: string; second: string; th
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const article = articles.find((item) => item.slug === slug);
+  let article = articles.find((item) => item.slug === slug);
+
+  if (!article) {
+    const generated = await getGeneratedArticle(slug);
+    if (generated) {
+      article = {
+        slug: generated.slug,
+        title: generated.title,
+        category: generated.category,
+        difficulty: generated.difficulty as "BEGINNER" | "INTERMEDIATE" | "ADVANCED",
+        readTime: generated.read_time,
+        xp: generated.xp,
+        excerpt: generated.excerpt,
+        tags: generated.tags ?? [],
+        body: generated.body,
+      };
+    }
+  }
+
   if (!article) notFound();
 
   const chart = getChartForArticle(article.category, slug);

@@ -4,19 +4,19 @@ import { env } from "@/lib/env";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Crystal Forge — Technology Architect",
+  title: "CRYSTAL // FORGE — Technology Architect",
   description: "A living technology headquarters for systems, security, and field-tested ideas.",
   metadataBase: new URL(env.siteUrl),
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "Crystal Forge",
-    title: "Crystal Forge — Technology Architect",
+    siteName: "CRYSTAL // FORGE",
+    title: "CRYSTAL // FORGE — Technology Architect",
     description: "A living technology headquarters for systems, security, and field-tested ideas.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Crystal Forge — Technology Architect",
+    title: "CRYSTAL // FORGE — Technology Architect",
     description: "A living technology headquarters for systems, security, and field-tested ideas.",
   },
 };

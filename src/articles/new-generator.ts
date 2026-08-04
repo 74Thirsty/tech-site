@@ -6,6 +6,7 @@ import { cryptoCollector } from "@/intelligence/collectors/crypto";
 import type { ScoredOpportunity } from "@/intelligence/types";
 import { selectTopics, type ArticleTopic } from "./topics";
 import { storeGeneratedArticle } from "@/lib/generated-articles";
+import { TOPIC_CONTENT } from "./topic-content";
 
 export type GeneratedArticle = {
   slug: string;
@@ -33,6 +34,8 @@ function escapeHtml(text: string): string {
 
 function buildArticleBody(topic: ArticleTopic, items: ScoredOpportunity[]): string {
   const sections: string[] = [];
+  const content = TOPIC_CONTENT[topic.slug];
+
   const relevant = items
     .filter(item => {
       const itemTopics = item.topics.map(t => t.toLowerCase());
@@ -45,75 +48,128 @@ function buildArticleBody(topic: ArticleTopic, items: ScoredOpportunity[]): stri
     .sort((a, b) => b.priority - a.priority)
     .slice(0, 5);
 
-  sections.push(`<p>${escapeHtml(topic.excerpt)}</p>`);
+  if (content) {
+    sections.push(content.intro);
+    sections.push(`<h2>THE DEEP DIVE</h2>`);
+    sections.push(content.deepDive);
 
-  sections.push(`<h2>THE DEEP DIVE</h2>`);
-
-  if (relevant.length > 0) {
-    sections.push(`<p>This analysis draws from ${relevant.length} current intelligence signals.</p>`);
-    for (const item of relevant) {
-      sections.push(`<h3>${escapeHtml(item.title)}</h3>`);
-      sections.push(`<p>${escapeHtml(item.summary)}</p>`);
-      if (item.url) {
-        sections.push(`<p><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Source: ${escapeHtml(item.source)}</a></p>`);
+    if (relevant.length > 0) {
+      sections.push(`<h3>What's happening right now</h3>`);
+      sections.push(`<p>This analysis draws from ${relevant.length} current intelligence signals:</p>`);
+      for (const item of relevant) {
+        sections.push(`<p><strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.summary)}</p>`);
       }
     }
-  } else {
-    sections.push(`<p>${escapeHtml(topic.subtitle)}. The field continues to evolve as practitioners discover new attack vectors, defensive strategies, and architectural patterns.</p>`);
-    sections.push(`<p>Understanding the fundamentals is the foundation. Every advanced technique builds on core principles that never change.</p>`);
-  }
 
-  sections.push(`<h2>PRINCIPLES</h2>`);
-  sections.push(`<ol>`);
-  sections.push(`<li><strong>Understand the threat model before implementing defenses.</strong> Every system has different risks. Defending against everything defends against nothing.</li>`);
-  sections.push(`<li><strong>Layer your defenses.</strong> No single control is sufficient. Defense in depth means one failure does not compromise the entire system.</li>`);
-  sections.push(`<li><strong>Automate detection.</strong> Manual monitoring does not scale. Build systems that alert on anomalies, not thresholds.</li>`);
-  sections.push(`<li><strong>Test your defenses.</strong> An untested security control is a theoretical control. Red team your own infrastructure.</li>`);
-  sections.push(`<li><strong>Document everything.</strong> The incident response playbook written during the incident is too late. Write it before.</li>`);
-  sections.push(`</ol>`);
-
-  sections.push(`<h2>IN PRACTICE</h2>`);
-  sections.push(`<h3>Getting Started</h3>`);
-  sections.push(`<p>Start with the basics. Identify your assets, map your attack surface, and prioritize your defenses based on risk, not convenience.</p>`);
-
-  if (relevant.length > 0) {
-    sections.push(`<h3>Current Landscape</h3>`);
-    for (const item of relevant.slice(0, 3)) {
-      sections.push(`<p><strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.summary)}</p>`);
+    sections.push(`<h2>PRINCIPLES</h2>`);
+    sections.push(`<ol>`);
+    for (const p of content.principles) {
+      sections.push(`<li>${p}</li>`);
     }
-  }
+    sections.push(`</ol>`);
 
-  sections.push(`<h2>LIVE SIGNALS</h2>`);
-  if (relevant.length > 0) {
-    sections.push(`<p>These items surfaced from the intelligence pipeline at generation time.</p>`);
+    sections.push(`<h2>IN PRACTICE</h2>`);
+    for (const ex of content.examples) {
+      sections.push(`<h3>${escapeHtml(ex.title)}</h3>`);
+      sections.push(ex.body);
+    }
+
+    if (relevant.length > 0) {
+      sections.push(`<h3>Current Landscape</h3>`);
+      for (const item of relevant.slice(0, 3)) {
+        sections.push(`<p><strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.summary)}</p>`);
+      }
+    }
+
+    sections.push(`<h2>LIVE SIGNALS</h2>`);
+    if (relevant.length > 0) {
+      sections.push(`<p>These items surfaced from the intelligence pipeline at generation time.</p>`);
+      sections.push(`<ul>`);
+      for (const item of relevant) {
+        sections.push(`<li><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.title)}</a> — ${escapeHtml(item.summary)} <em>(${escapeHtml(item.source)})</em></li>`);
+      }
+      sections.push(`</ul>`);
+    } else {
+      sections.push(`<p>No live signals matched this topic at generation time. Run research to populate the intelligence pipeline.</p>`);
+    }
+
+    sections.push(`<h2>ANTIPATTERNS</h2>`);
     sections.push(`<ul>`);
-    for (const item of relevant) {
-      sections.push(`<li><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.title)}</a> — ${escapeHtml(item.summary)} <em>(${escapeHtml(item.source)})</em></li>`);
+    for (const ap of content.antiPatterns) {
+      sections.push(`<li>${escapeHtml(ap)}</li>`);
     }
     sections.push(`</ul>`);
+
+    sections.push(`<h2>CHECKLIST</h2>`);
+    sections.push(`<ul>`);
+    for (const c of content.checklist) {
+      sections.push(`<li>${escapeHtml(c)}</li>`);
+    }
+    sections.push(`</ul>`);
+
+    sections.push(`<h2>YOUR MOVE</h2>`);
+    sections.push(`<p>${escapeHtml(content.move)}</p>`);
   } else {
-    sections.push(`<p>No live signals matched this topic at generation time. Run research to populate the intelligence pipeline.</p>`);
+    sections.push(`<p>${escapeHtml(topic.excerpt)}</p>`);
+
+    sections.push(`<h2>THE DEEP DIVE</h2>`);
+    if (relevant.length > 0) {
+      sections.push(`<p>This analysis draws from ${relevant.length} current intelligence signals.</p>`);
+      for (const item of relevant) {
+        sections.push(`<h3>${escapeHtml(item.title)}</h3>`);
+        sections.push(`<p>${escapeHtml(item.summary)}</p>`);
+        if (item.url) {
+          sections.push(`<p><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Source: ${escapeHtml(item.source)}</a></p>`);
+        }
+      }
+    } else {
+      sections.push(`<p>${escapeHtml(topic.subtitle)}. The field continues to evolve as practitioners discover new attack vectors, defensive strategies, and architectural patterns.</p>`);
+      sections.push(`<p>Understanding the fundamentals is the foundation. Every advanced technique builds on core principles that never change.</p>`);
+    }
+
+    sections.push(`<h2>PRINCIPLES</h2>`);
+    sections.push(`<ol>`);
+    sections.push(`<li><strong>Understand the threat model before implementing defenses.</strong> Every system has different risks. Defending against everything defends against nothing.</li>`);
+    sections.push(`<li><strong>Layer your defenses.</strong> No single control is sufficient. Defense in depth means one failure does not compromise the entire system.</li>`);
+    sections.push(`<li><strong>Automate detection.</strong> Manual monitoring does not scale. Build systems that alert on anomalies, not thresholds.</li>`);
+    sections.push(`<li><strong>Test your defenses.</strong> An untested security control is a theoretical control. Red team your own infrastructure.</li>`);
+    sections.push(`<li><strong>Document everything.</strong> The incident response playbook written during the incident is too late. Write it before.</li>`);
+    sections.push(`</ol>`);
+
+    sections.push(`<h2>IN PRACTICE</h2>`);
+    sections.push(`<p>Start with the basics. Identify your assets, map your attack surface, and prioritize your defenses based on risk, not convenience.</p>`);
+
+    sections.push(`<h2>LIVE SIGNALS</h2>`);
+    if (relevant.length > 0) {
+      sections.push(`<ul>`);
+      for (const item of relevant) {
+        sections.push(`<li><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.title)}</a> — ${escapeHtml(item.summary)} <em>(${escapeHtml(item.source)})</em></li>`);
+      }
+      sections.push(`</ul>`);
+    } else {
+      sections.push(`<p>No live signals matched this topic at generation time. Run research to populate the intelligence pipeline.</p>`);
+    }
+
+    sections.push(`<h2>ANTIPATTERNS</h2>`);
+    sections.push(`<ul>`);
+    sections.push(`<li>Implementing security controls without understanding the threat they address</li>`);
+    sections.push(`<li>Ignoring logging and monitoring until after an incident</li>`);
+    sections.push(`<li>Relying on a single layer of defense for critical assets</li>`);
+    sections.push(`<li>Skipping regular security reviews because "nothing has changed"</li>`);
+    sections.push(`</ul>`);
+
+    sections.push(`<h2>CHECKLIST</h2>`);
+    sections.push(`<ul>`);
+    sections.push(`<li>Threat model is documented and current</li>`);
+    sections.push(`<li>All critical assets are identified and classified</li>`);
+    sections.push(`<li>Defense-in-depth controls are implemented</li>`);
+    sections.push(`<li>Logging and monitoring cover the attack surface</li>`);
+    sections.push(`<li>Incident response playbook is tested quarterly</li>`);
+    sections.push(`</ul>`);
+
+    sections.push(`<h2>YOUR MOVE</h2>`);
+    sections.push(`<p>Open a terminal, test one idea, and return with a sharper question.</p>`);
   }
-
-  sections.push(`<h2>ANTIPATTERNS</h2>`);
-  sections.push(`<ul>`);
-  sections.push(`<li>Implementing security controls without understanding the threat they address</li>`);
-  sections.push(`<li>Ignoring logging and monitoring until after an incident</li>`);
-  sections.push(`<li>Relying on a single layer of defense for critical assets</li>`);
-  sections.push(`<li>Skipping regular security reviews because "nothing has changed"</li>`);
-  sections.push(`</ul>`);
-
-  sections.push(`<h2>CHECKLIST</h2>`);
-  sections.push(`<ul>`);
-  sections.push(`<li>Threat model is documented and current</li>`);
-  sections.push(`<li>All critical assets are identified and classified</li>`);
-  sections.push(`<li>Defense-in-depth controls are implemented</li>`);
-  sections.push(`<li>Logging and monitoring cover the attack surface</li>`);
-  sections.push(`<li>Incident response playbook is tested quarterly</li>`);
-  sections.push(`</ul>`);
-
-  sections.push(`<h2>YOUR MOVE</h2>`);
-  sections.push(`<p>Open a terminal, test one idea, and return with a sharper question.</p>`);
 
   return sections.join("\n");
 }

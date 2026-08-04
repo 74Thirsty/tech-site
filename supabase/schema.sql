@@ -2,6 +2,8 @@ create extension if not exists "pgcrypto";
 
 create table if not exists public.profiles (id uuid primary key references auth.users(id) on delete cascade, display_name text not null default 'Unknown_User', xp integer not null default 0, level integer not null default 1, created_at timestamptz not null default now());
 create table if not exists public.articles (id uuid primary key default gen_random_uuid(), slug text unique not null, title text not null, category text not null, difficulty text not null, read_time text not null, xp integer not null default 0, excerpt text not null, body text, published_at timestamptz);
+alter table public.articles add column if not exists tags text[] default '{}';
+alter table public.articles add column if not exists generated_at timestamptz default now();
 create table if not exists public.projects (id uuid primary key default gen_random_uuid(), slug text unique not null, name text not null, status text not null, description text not null, payload jsonb not null default '{}');
 create table if not exists public.books (id uuid primary key default gen_random_uuid(), slug text unique not null, title text not null, description text not null, purchase_url text, sample_url text);
 create table if not exists public.events (id uuid primary key default gen_random_uuid(), title text not null, starts_at timestamptz not null, location text not null, registration_url text, status text not null default 'OPEN');

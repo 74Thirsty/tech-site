@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { generateFourArticles } from "@/articles/new-generator";
+import { publishDiscord } from "@/distribution/discord-publisher";
 
 export async function POST(request: Request) {
   const user = requireAuth(request);
@@ -10,6 +11,14 @@ export async function POST(request: Request) {
 
   if (body.action === "generate-all" || body.action === "generate-four") {
     const result = await generateFourArticles();
+
+    if (result.articles.length > 0) {
+      const list = result.articles.map((a, i) => `${i + 1}. **${a.title}** (${a.category})`).join("\n");
+      await publishDiscord(
+        `**${result.articles.length} articles generated — awaiting approval**\n${list}\n\nApprove: https://stratagemconsulting.net/control`
+      );
+    }
+
     return NextResponse.json({
       success: result.success,
       generated: result.articles.length,

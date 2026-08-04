@@ -1,6 +1,7 @@
 import { articles, books, projects } from "@/lib/content";
 import { generatePremiumGuide, type NewsletterGuide } from "@/newsletter/guide-generator";
 import { supabaseRequest } from "@/lib/supabase";
+import { getPendingArticles, getAllGeneratedArticles } from "@/lib/generated-articles";
 
 type QueueItem = {
   id: string;
@@ -18,12 +19,12 @@ type ArticleGenerationResult = {
   errors: string[];
 };
 
-type ControlState = {
+export type ControlState = {
   issue: NewsletterGuide | null;
   queue: QueueItem[];
   timeline: string[];
   lastResearch: string | null;
-  counts: { articles: number; projects: number; books: number };
+  counts: { articles: number; projects: number; books: number; pendingArticles: number; publishedArticles: number; newsletters: number; subscribers: number };
   articleGenerations: ArticleGenerationResult[];
   researchRuns: number;
 };
@@ -35,7 +36,7 @@ if (!globalState.neonForgeControl) {
     queue: [],
     timeline: [],
     lastResearch: null,
-    counts: { articles: articles.length, projects: projects.length, books: books.length },
+    counts: { articles: articles.length, projects: projects.length, books: books.length, pendingArticles: 0, publishedArticles: 0, newsletters: 0, subscribers: 0 },
     articleGenerations: [],
     researchRuns: 0,
   };
@@ -47,7 +48,25 @@ export function getControlState(): ControlState {
 
 export async function loadControlState(): Promise<ControlState> {
   const state = getControlState();
-  state.counts = { articles: articles.length, projects: projects.length, books: books.length };
+  state.counts = { articles: articles.length, projects: projects.length, books: books.length, pendingArticles: 0, publishedArticles: 0, newsletters: 0, subscribers: 0 };
+
+  if (hasSupabase()) {
+    try {
+      const [pending, allArticles, newsletters, subs] = await Promise.all([
+        getPendingArticles(),
+        getAllGeneratedArticles(),
+        supabaseRequest<Array<{ id: string }>>("newsletter_issues?select=id", { method: "GET" }),
+        supabaseRequest<Array<{ email: string }>>("subscribers?select=email", { method: "GET" }),
+      ]);
+      state.counts.pendingArticles = pending.length;
+      state.counts.publishedArticles = allArticles.filter(a => a.status === "PUBLISHED").length;
+      state.counts.newsletters = newsletters?.length ?? 0;
+      state.counts.subscribers = subs?.length ?? 0;
+    } catch {
+      // counts stay at defaults
+    }
+  }
+
   return state;
 }
 
@@ -120,10 +139,10 @@ export function recordArticleGeneration(result: ArticleGenerationResult): void {
   const successful = result.status === "COMPLETE" ? result.topicCount : 0;
   state.timeline.unshift(
     result.status === "COMPLETE"
-      ? `Generated ${successful} articles from research`
+      ? `Generated ${successful} articles — pending approval`
       : `Article generation failed: ${result.errors.join(", ")}`
   );
-  state.counts = { articles: articles.length, projects: projects.length, books: books.length };
+  state.counts = { articles: articles.length, projects: projects.length, books: books.length, pendingArticles: state.counts.pendingArticles + successful, publishedArticles: state.counts.publishedArticles, newsletters: state.counts.newsletters, subscribers: state.counts.subscribers };
 }
 
 export function recordResearch(result: { outputCount: number; errors: string[] }): void {

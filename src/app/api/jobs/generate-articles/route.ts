@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { generateFourArticles } from "@/articles/new-generator";
 import { getAllGeneratedArticles } from "@/lib/generated-articles";
+import { publishDiscord } from "@/distribution/discord-publisher";
 
 export async function GET(request: Request) {
   const user = requireAuth(request);
@@ -28,6 +29,13 @@ export async function GET(request: Request) {
 
     console.log("Auto-generating articles: fewer than 2 scheduled for next 7 days");
     const result = await generateFourArticles();
+
+    if (result.articles.length > 0) {
+      const list = result.articles.map((a, i) => `${i + 1}. **${a.title}** (${a.category})`).join("\n");
+      await publishDiscord(
+        `**${result.articles.length} articles auto-generated — awaiting approval**\n${list}\n\nApprove: https://stratagemconsulting.net/control`
+      );
+    }
 
     return NextResponse.json({
       success: result.success,

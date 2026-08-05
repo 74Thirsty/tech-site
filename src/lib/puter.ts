@@ -5,6 +5,8 @@ import { env } from "./env";
 // User-pays model: each user covers their own usage. No API keys needed.
 // Auth token obtained via browser login or environment variable.
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 let puterInstance: any = null;
 
 function getPuter(): any {
@@ -13,9 +15,10 @@ function getPuter(): any {
   const token = env.puterAuthToken;
   if (!token) throw new Error("PUTER_AUTH_TOKEN not configured — sign in at Puter to get a token");
 
-  // Dynamic require to avoid bundling issues in edge/client contexts
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { init } = require("@heyputer/puter.js/src/init.cjs");
+  // Dynamic import via Function constructor to avoid bundling issues
+  // and satisfy ESLint's no-require rule
+  const loadPuter = new Function("return require('@heyputer/puter.js/src/init.cjs')");
+  const { init } = loadPuter();
   puterInstance = init(token);
   return puterInstance;
 }

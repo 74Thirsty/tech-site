@@ -1,21 +1,21 @@
 #!/bin/bash
-# Load NEON//FORGE secrets from KDE Wallet into environment
+# Load CRYSTAL // FORGE secrets from KDE Wallet into environment
 # Usage: source load-env.sh
 
 WALLET="kdewallet"
-FOLDER="neon-forge"
+FOLDER="arcade-site"
 
 load_key() {
   local key="$1"
   local value
-  value=$(kwallet-query "$WALLET" -f "$FOLDER" "$key" 2>/dev/null)
+  value=$(kwallet-query "$WALLET" -f "$FOLDER" -r "$key" 2>/dev/null)
   if [ -n "$value" ] && [ "$value" != "(no match)" ]; then
     export "$key=$value"
     echo "  loaded $key"
   fi
 }
 
-echo "Loading NEON//FORGE secrets from kwallet..."
+echo "Loading CRYSTAL // FORGE secrets from kwallet..."
 load_key GEMINI_API_KEY
 load_key PEXELS_API_KEY
 load_key NEXT_PUBLIC_SITE_URL
@@ -27,4 +27,6 @@ load_key STRIPE_SECRET_KEY
 load_key STRIPE_WEBHOOK_SECRET
 load_key CRON_SECRET
 load_key DISCORD_WEBHOOK_URL
+load_key PUTERJS_API_KEY
+load_key GROQ_API_KEY
 echo "Done."

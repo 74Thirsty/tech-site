@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { generateContent } from "@/lib/puter";
+import { generateContent, pipelineDelay } from "@/lib/ai";
 import type { ResearchGroup, ResearchAnalysis } from "./types";
 
 // ─── AI Research Analyzer ────────────────────────────────────────────────────
@@ -14,10 +14,11 @@ export async function analyzeResearchGroups(
   const batched = batchGroups(groups, 5);
 
   for (const batch of batched) {
-    const batchAnalyses = await Promise.all(
-      batch.map(group => analyzeGroup(group))
-    );
-    analyses.push(...batchAnalyses.filter((a): a is ResearchAnalysis => a !== null));
+    for (const group of batch) {
+      const analysis = await analyzeGroup(group);
+      if (analysis) analyses.push(analysis);
+      await pipelineDelay();
+    }
   }
 
   return analyses;
@@ -62,7 +63,7 @@ Rules:
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonMatch[0].replace(/[\x00-\x1f\x7f]/g, " "));
 
     return {
       group,

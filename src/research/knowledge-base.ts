@@ -93,6 +93,48 @@ export async function storeResearchAnalyses(analyses: ResearchAnalysis[]): Promi
   return stored;
 }
 
+export async function pruneOldResearch(): Promise<{ articles: number; groups: number; analyses: number }> {
+  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  let articles = 0, groups = 0, analyses = 0;
+  try {
+    const res = await supabaseRequest<Array<{ id: string }>>(
+      `research_articles?created_at=lt.${encodeURIComponent(cutoff)}&select=id`,
+      { method: "GET" }
+    );
+    if (res?.length) {
+      for (const row of res) {
+        await supabaseRequest(`research_articles?id=eq.${row.id}`, { method: "DELETE" });
+      }
+      articles = res.length;
+    }
+  } catch { /* best-effort */ }
+  try {
+    const groupRes = await supabaseRequest<Array<{ id: string }>>(
+      `research_groups?created_at=lt.${encodeURIComponent(cutoff)}&select=id`,
+      { method: "GET" }
+    );
+    if (groupRes?.length) {
+      for (const row of groupRes) {
+        await supabaseRequest(`research_groups?id=eq.${row.id}`, { method: "DELETE" });
+      }
+      groups = groupRes.length;
+    }
+  } catch { /* best-effort */ }
+  try {
+    const analysisRes = await supabaseRequest<Array<{ id: string }>>(
+      `research_analyses?created_at=lt.${encodeURIComponent(cutoff)}&select=id`,
+      { method: "GET" }
+    );
+    if (analysisRes?.length) {
+      for (const row of analysisRes) {
+        await supabaseRequest(`research_analyses?id=eq.${row.id}`, { method: "DELETE" });
+      }
+      analyses = analysisRes.length;
+    }
+  } catch { /* best-effort */ }
+  return { articles, groups, analyses };
+}
+
 export async function getRecentArticles(keyword?: string): Promise<ResearchArticle[]> {
   try {
     const filter = keyword ? `keyword=eq.${encodeURIComponent(keyword)}&` : "";

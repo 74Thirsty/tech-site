@@ -7,6 +7,7 @@ import { gdeltCollector } from "@/intelligence/collectors/gdelt";
 import { newsdataCollector } from "@/intelligence/collectors/newsdata";
 import { newsapiCollector } from "@/intelligence/collectors/newsapi";
 import { runIntelligence } from "@/intelligence/pipeline";
+import { pruneOldResearch } from "@/research/knowledge-base";
 import type { JobResult } from "./types";
 
 export async function runResearchJob(): Promise<
@@ -25,6 +26,7 @@ export async function runResearchJob(): Promise<
       newsdataCollector,
       newsapiCollector,
     ]);
+    const pruned = await pruneOldResearch();
     return {
       job: "research",
       status: "COMPLETE",
@@ -33,6 +35,7 @@ export async function runResearchJob(): Promise<
       errors: result.errors,
       outputCount: result.items.length,
       opportunities: result.items,
+      pruned,
     };
   } catch (error) {
     return {

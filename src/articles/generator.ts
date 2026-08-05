@@ -1,8 +1,20 @@
 import { env } from "@/lib/env";
-import { generateContent } from "@/lib/puter";
+import { generateContent, pipelineDelay } from "@/lib/ai";
 import { runResearchPipeline, getRecentGroups, getResearchStats } from "@/research";
 import type { ArticlePlan, ResearchConfig } from "@/research/types";
 import { storeGeneratedArticle } from "@/lib/generated-articles";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+// ─── Writer Agent Instructions ───────────────────────────────────────────────
+// Loaded from CLAUDE.md at module init. Injected into every generation prompt.
+
+let AGENT_INSTRUCTIONS = "";
+try {
+  AGENT_INSTRUCTIONS = readFileSync(join(process.cwd(), "CLAUDE.md"), "utf8");
+} catch {
+  AGENT_INSTRUCTIONS = "You are a senior technical writer. Write deeply technical, well-researched articles.";
+}
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -139,8 +151,8 @@ export interface GeneratedArticleBody {
 
 export async function generateArticleBody(
   plan: ArticlePlan,
-  wordCount: number = 1000,
-  tolerance: number = 10
+  wordCount: number = 1200,
+  tolerance: number = 15
 ): Promise<GeneratedArticleBody> {
   const citations = plan.researchPackage.citations
     .slice(0, 10)
@@ -167,7 +179,9 @@ Important: ${a.isImportant}
 `).join("\n")}`
     : "";
 
-  const prompt = `You are a senior technical writer for a cybersecurity and blockchain engineering publication. Write a complete, deeply technical article based on verified research.
+  const prompt = `${AGENT_INSTRUCTIONS}
+
+Write a complete article based on the following research. Follow the structure and voice guidelines above exactly.
 
 ARTICLE PLAN:
 Title: ${plan.title}
@@ -185,7 +199,7 @@ SOURCES (cite these in LIVE SIGNALS):
 ${citations}
 ${analysisContext}
 
-Write the article following this EXACT structure. Return ONLY valid JSON, no markdown fences:
+Return ONLY valid JSON, no markdown fences:
 
 {
   "intro": "<p>First paragraph...</p><p>Second paragraph...</p>",
@@ -212,14 +226,18 @@ CRITICAL RULES:
 12. Use HTML tags: <p>, <h3>, <pre><code>, <strong>, <em>, <ul>, <li>, <a>.
 13. Do NOT include <h2> tags — those are added by the layout system.
 14. Write as if the reader is a practicing engineer.
-15. Every claim must be grounded in the provided research or established technical fact.`;
+15. Every claim must be grounded in the provided research or established technical fact.
+16. NO section should repeat information from another section. Each section must add NEW value.
+17. Include at least one real code snippet or command in the deepDive.
+18. The deepDive should include a mermaid chart showing architecture, flow, or relationships.`;
 
   const genText = await generateContent(prompt);
 
   const jsonMatch = genText.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Failed to parse article content from Gemini");
+  if (!jsonMatch) throw new Error("Failed to parse article content from AI");
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  const cleaned = jsonMatch[0].replace(/[\x00-\x1f\x7f]/g, " ");
+  const parsed = JSON.parse(cleaned);
 
   let intro = parsed.intro || "";
   const introWords = countWords(intro);
@@ -257,6 +275,69 @@ Count every word carefully.`;
     checklist: Array.isArray(parsed.checklist) ? parsed.checklist : [],
     move: parsed.move || "",
   };
+}
+
+// ─── Deep Dive Expansion & Polish ────────────────────────────────────────────
+
+async function expandDeepDive(
+  plan: ArticlePlan,
+  content: GeneratedArticleBody
+): Promise<GeneratedArticleBody> {
+  const prompt = `You are a senior technical editor. Expand and polish this article's deep dive section.
+
+TOPIC: ${plan.title}
+CATEGORY: ${plan.category}
+
+CURRENT DEEP DIVE:
+${content.deepDive}
+
+CURRENT EXAMPLES:
+${content.examples.map(e => e.title + ": " + e.body).join("\n")}
+
+CURRENT ANTI-PATTERNS:
+${content.antiPatterns.join("\n")}
+
+TASKS:
+1. Expand the deep dive to 600-800 words with 3-4 subsections
+2. Add at least one real code block (command line, config, or code snippet) in <pre><code> tags
+3. Add a mermaid chart showing the architecture, flow, or relationships described (use \`\`\`mermaid blocks)
+4. Make sure the deep dive does NOT repeat information from the intro
+5. Make sure examples don't repeat the deep dive content
+6. Make sure anti-patterns don't overlap with principles
+7. Each section must add NEW information, not restate what came before
+
+Return ONLY valid JSON:
+{
+  "deepDive": "expanded HTML with h3 subsections, pre/code blocks, and mermaid chart",
+  "examples": [{"title": "...", "body": "..."}],
+  "antiPatterns": ["..."]
+}
+
+RULES:
+- No <h2> tags — those are added by layout
+- Use <h3> for subsections
+- Include at least one <pre><code> block with real commands or code
+- Include one \`\`\`mermaid chart block
+- No repetition between sections
+- Write as a practitioner, not a textbook`;
+
+  try {
+    const text = await generateContent(prompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return content;
+
+    const cleaned = jsonMatch[0].replace(/[\x00-\x1f\x7f]/g, " ");
+    const parsed = JSON.parse(cleaned);
+    return {
+      ...content,
+      deepDive: parsed.deepDive || content.deepDive,
+      examples: Array.isArray(parsed.examples) && parsed.examples.length > 0 ? parsed.examples : content.examples,
+      antiPatterns: Array.isArray(parsed.antiPatterns) && parsed.antiPatterns.length > 0 ? parsed.antiPatterns : content.antiPatterns,
+    };
+  } catch (error) {
+    console.log(`  Deep dive expansion failed: ${String(error)}, using original`);
+    return content;
+  }
 }
 
 // ─── Article Body Rendering ──────────────────────────────────────────────────
@@ -298,7 +379,7 @@ export function renderArticleBody(
     }
     sections.push(`</ul>`);
   } else {
-    sections.push(`<p>No live signals matched this topic at generation time.</p>`);
+    sections.push(`<p>Sources monitored in real time. No breaking events at time of writing.</p>`);
   }
 
   if (content.antiPatterns.length > 0) {
@@ -345,7 +426,107 @@ export interface GeneratedArticle {
   researchSources: string[];
 }
 
-// ─── Main Generation Pipeline ────────────────────────────────────────────────
+// ─── Single Article Generation (Cron) ────────────────────────────────────────
+
+export async function generateSingleArticle(
+  config: GeneratorConfig = {}
+): Promise<{
+  success: boolean;
+  article: GeneratedArticle | null;
+  errors: string[];
+  researchCount: number;
+}> {
+  const errors: string[] = [];
+
+  console.log("═══ SINGLE ARTICLE GENERATION ═══");
+
+  // ─── Step 1: Run Research Pipeline (1 article) ──────────────────────────
+  console.log("\n[1/3] Running research pipeline...");
+  const pipelineConfig: Partial<ResearchConfig> = {
+    ...config,
+    articlesPerCycle: 1,
+  };
+
+  let pipelineResult;
+  try {
+    pipelineResult = await runResearchPipeline(pipelineConfig);
+    errors.push(...pipelineResult.errors);
+  } catch (error) {
+    errors.push(`Research pipeline failed: ${String(error)}`);
+    return { success: false, article: null, errors, researchCount: 0 };
+  }
+
+  if (!pipelineResult.success || pipelineResult.articles.length === 0) {
+    errors.push("Research pipeline produced no article plans.");
+    return { success: false, article: null, errors, researchCount: pipelineResult.research.totalArticles };
+  }
+
+  const plan = pipelineResult.articles[0];
+  console.log(`  Selected: ${plan.title}`);
+
+  // ─── Step 2: Generate Article ───────────────────────────────────────────
+  console.log("\n[2/3] Generating article...");
+  let article: GeneratedArticle;
+  try {
+    const rawContent = await generateArticleBody(plan);
+    await pipelineDelay();
+    const content = await expandDeepDive(plan, rawContent);
+    await pipelineDelay();
+    const body = renderArticleBody(plan, content);
+
+    const publishAt = new Date();
+    publishAt.setDate(publishAt.getDate() + 1);
+    publishAt.setHours(9, 0, 0, 0);
+
+    article = {
+      slug: plan.slug,
+      title: plan.title,
+      subtitle: plan.subtitle,
+      category: plan.category,
+      difficulty: plan.difficulty,
+      readTime: plan.readTime,
+      xp: plan.xp,
+      excerpt: plan.excerpt,
+      tags: plan.tags,
+      body,
+      generatedAt: new Date().toISOString(),
+      publishAt: publishAt.toISOString(),
+      researchSources: plan.researchPackage.citations.map(c => c.url),
+    };
+    console.log(`  ✓ Generated: ${plan.title}`);
+  } catch (error) {
+    errors.push(`Failed to generate "${plan.title}": ${String(error)}`);
+    console.error(`  ✗ Failed: ${plan.title} — ${String(error)}`);
+    return { success: false, article: null, errors, researchCount: pipelineResult.research.totalArticles };
+  }
+
+  // ─── Step 3: Store Article ──────────────────────────────────────────────
+  console.log("\n[3/3] Storing article...");
+  const ok = await storeGeneratedArticle({
+    slug: article.slug,
+    title: article.title,
+    category: article.category,
+    difficulty: article.difficulty,
+    read_time: article.readTime,
+    xp: article.xp,
+    excerpt: article.excerpt,
+    body: article.body,
+    tags: article.tags,
+  }, article.publishAt);
+
+  if (ok) console.log(`  ✓ Stored: ${article.slug}`);
+  else errors.push(`Failed to store article: ${article.slug}`);
+
+  console.log("\n═══ GENERATION COMPLETE ═══");
+  return {
+    success: ok,
+    article: ok ? article : null,
+    errors,
+    researchCount: pipelineResult.research.totalArticles,
+  };
+}
+
+// ─── Batch Generation (Manual) ──────────────────────────────────────────────
 
 export async function generateFourArticles(
   config: GeneratorConfig = {}
@@ -391,7 +572,10 @@ export async function generateFourArticles(
     const plan = pipelineResult.articles[i];
     try {
       console.log(`\n  Generating: ${plan.title}`);
-      const content = await generateArticleBody(plan);
+      const rawContent = await generateArticleBody(plan);
+      await pipelineDelay();
+      const content = await expandDeepDive(plan, rawContent);
+      await pipelineDelay();
       const body = renderArticleBody(plan, content);
 
       const publishAt = new Date(now);
@@ -473,7 +657,10 @@ export async function generateArticleBySlug(slug: string): Promise<{ success: bo
     }
 
     const plan = pipelineResult.articles[0];
-    const content = await generateArticleBody(plan);
+    const rawContent = await generateArticleBody(plan);
+    await pipelineDelay();
+    const content = await expandDeepDive(plan, rawContent);
+    await pipelineDelay();
     const body = renderArticleBody(plan, content);
 
     await storeGeneratedArticle({

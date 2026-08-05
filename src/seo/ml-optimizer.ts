@@ -1,4 +1,4 @@
-import { generateContent } from "@/lib/puter";
+import { generateContent } from "@/lib/ai";
 
 export type GeminiSeoResult = {
   keywords: string[];
@@ -50,7 +50,7 @@ Rules:
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse Gemini response as JSON");
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  const parsed = JSON.parse(jsonMatch[0].replace(/[\x00-\x1f\x7f]/g, " "));
 
   return {
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 8) : input.topics,

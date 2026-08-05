@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { generateFourArticles } from "@/articles/generator";
+import { generateSingleArticle } from "@/articles/generator";
 import { getAllGeneratedArticles } from "@/lib/generated-articles";
 import { publishDiscord } from "@/distribution/discord-publisher";
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       return !isNaN(pub.getTime()) && pub >= now && pub <= sevenDaysFromNow;
     });
 
-    if (upcoming.length >= 2) {
+    if (upcoming.length >= 1) {
       return NextResponse.json({
         skipped: true,
         reason: `${upcoming.length} articles already scheduled for the next 7 days`,
@@ -27,24 +27,23 @@ export async function GET(request: Request) {
       });
     }
 
-    console.log("Auto-generating articles: fewer than 2 scheduled for next 7 days");
-    const result = await generateFourArticles();
+    console.log("Auto-generating 1 article: no articles scheduled for next 7 days");
+    const result = await generateSingleArticle();
 
-    if (result.articles.length > 0) {
-      const list = result.articles.map((a, i) => `${i + 1}. **${a.title}** (${a.category})`).join("\n");
+    if (result.success && result.article) {
       await publishDiscord(
-        `**${result.articles.length} articles auto-generated — awaiting approval**\n${list}\n\nApprove: https://stratagemconsulting.net/control`
+        `**1 article auto-generated — awaiting approval**\n**${result.article.title}** (${result.article.category})\n\nApprove: https://stratagemconsulting.net/control`
       );
     }
 
     return NextResponse.json({
       success: result.success,
-      generated: result.articles.length,
-      articles: result.articles.map(a => ({
-        slug: a.slug,
-        title: a.title,
-        publishAt: a.publishAt,
-      })),
+      generated: result.article ? 1 : 0,
+      article: result.article ? {
+        slug: result.article.slug,
+        title: result.article.title,
+        publishAt: result.article.publishAt,
+      } : null,
       errors: result.errors,
       researchCount: result.researchCount,
     });

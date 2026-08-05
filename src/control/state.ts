@@ -29,9 +29,9 @@ export type ControlState = {
   researchRuns: number;
 };
 
-const globalState = globalThis as typeof globalThis & { neonForgeControl?: ControlState };
-if (!globalState.neonForgeControl) {
-  globalState.neonForgeControl = {
+const globalState = globalThis as typeof globalThis & { crystalForgeControl?: ControlState };
+if (!globalState.crystalForgeControl) {
+  globalState.crystalForgeControl = {
     issue: null,
     queue: [],
     timeline: [],
@@ -43,7 +43,7 @@ if (!globalState.neonForgeControl) {
 }
 
 export function getControlState(): ControlState {
-  return globalState.neonForgeControl!;
+  return globalState.crystalForgeControl!;
 }
 
 export async function loadControlState(): Promise<ControlState> {

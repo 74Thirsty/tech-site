@@ -1,9 +1,9 @@
 #!/bin/bash
-# Store NEON//FORGE secrets into KDE Wallet
+# Store CRYSTAL // FORGE secrets into KDE Wallet
 # Usage: ./store-env.sh
 
 WALLET="kdewallet"
-FOLDER="neon-forge"
+FOLDER="arcade-site"
 
 store_key() {
   local key="$1"
@@ -16,7 +16,7 @@ store_key() {
   fi
 }
 
-echo "Storing NEON//FORGE secrets into kwallet..."
+echo "Storing CRYSTAL // FORGE secrets into kwallet..."
 store_key GEMINI_API_KEY "Gemini API Key"
 store_key PEXELS_API_KEY "Pexels API Key"
 store_key NEXT_PUBLIC_SITE_URL "Site URL (https://arcade-site-gamma.vercel.app)"

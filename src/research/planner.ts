@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { generateContent } from "@/lib/puter";
+import { generateContent, pipelineDelay } from "@/lib/ai";
 import type { ResearchAnalysis, ArticlePlan, ResearchConfig } from "./types";
 
 // ─── Article Planning Engine ─────────────────────────────────────────────────
@@ -101,6 +101,7 @@ export async function planArticles(
   const scored = scoreTopics(analyses, cfg);
   const topTopics = scored.slice(0, cfg.articlesPerCycle * 2);
 
+  await pipelineDelay();
   const plans = await generatePlans(topTopics, cfg);
 
   return plans.slice(0, cfg.articlesPerCycle);
@@ -213,7 +214,7 @@ Rules:
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse article plans from Gemini");
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  const parsed = JSON.parse(jsonMatch[0].replace(/[\x00-\x1f\x7f]/g, " "));
   if (!Array.isArray(parsed.articles)) throw new Error("Invalid plan format");
 
   return parsed.articles.map((plan: Record<string, unknown>, index: number) => {

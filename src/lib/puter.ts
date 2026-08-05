@@ -1,15 +1,14 @@
 import { env } from "./env";
 
 // ─── Puter.js Server-Side AI Client ──────────────────────────────────────────
-// Calls Puter REST API directly via fetch — no SDK, no require(), no eval.
+// Uses Puter's OpenAI-compatible endpoint via fetch.
 // User-pays model: each user covers their own usage.
-// Auth token obtained via browser sign-in or environment variable.
 
-const PUTER_API = "https://puter-api.puter.com/v1/puter-ai/chat";
+const PUTER_API = "https://api.puter.com/puterai/openai/v1/chat/completions";
 
 export async function generateContent(prompt: string, model: string = "claude-sonnet-4-6"): Promise<string> {
   const token = env.puterAuthToken;
-  if (!token) throw new Error("PUTER_AUTH_TOKEN not configured — sign in at /control → SYSTEM tab");
+  if (!token) throw new Error("PUTERJS_API_KEY not configured — add to KWallet or .env.local");
 
   const response = await fetch(PUTER_API, {
     method: "POST",
@@ -30,12 +29,11 @@ export async function generateContent(prompt: string, model: string = "claude-so
 
   const data = await response.json();
 
-  // Extract text from Puter ChatResponse
+  // OpenAI-compatible response format
+  if (data?.choices?.[0]?.message?.content) return data.choices[0].message.content.trim();
+  // Fallbacks
   if (typeof data === "string") return data.trim();
   if (data?.message?.content?.[0]?.text) return data.message.content[0].text.trim();
   if (data?.text) return data.text.trim();
-  if (Array.isArray(data?.message?.content)) {
-    return data.message.content.map((c: any) => c?.text || "").filter(Boolean).join("\n").trim();
-  }
   return JSON.stringify(data, null, 2);
 }

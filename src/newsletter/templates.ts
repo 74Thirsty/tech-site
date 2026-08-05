@@ -10,7 +10,7 @@ export type NewsletterSection = {
 export const newsletterTemplate = {
   preheader: "A concise dispatch for the technically curious.",
   sender: "Crystal // Forge",
-  senderUrl: "https://neon-forge.dev",
+  senderUrl: "https://crystal-forge.dev",
   sections: [
     "THE SIGNAL",
     "FIELD NOTE",

@@ -50,7 +50,30 @@ type State = {
 
 type Subscriber = { email: string; source: string; created_at: string; status: string };
 
-type Tab = "queue" | "articles" | "newsletters" | "subscribers" | "system";
+type ResearchArticle = {
+  id: string; title: string; summary: string; url: string; publisher: string;
+  published_at: string; keyword: string; source: string; fetched_at: string; sentiment?: number;
+};
+
+type ResearchGroup = {
+  id: string; topic: string; keyword: string; summary: string; key_facts: string[];
+  sources: string[]; importance: string; source_count: number; freshness_score: number;
+};
+
+type ResearchAnalysis = {
+  id: string; group_external_id: string; what_happened: string; is_breaking: boolean;
+  is_important: boolean; technical_significance: string; why_it_matters: string;
+  key_entities: string[]; research_notes: string;
+};
+
+type ResearchData = {
+  articles: ResearchArticle[];
+  groups: ResearchGroup[];
+  analyses: ResearchAnalysis[];
+  stats: { totalArticles: number; totalGroups: number; totalAnalyses: number; sourcesBreakdown: Record<string, number>; keywordsBreakdown: Record<string, number> };
+};
+
+type Tab = "queue" | "articles" | "newsletters" | "subscribers" | "research" | "seo" | "system";
 
 export default function ControlCenter() {
   return (
@@ -76,6 +99,11 @@ function ControlCenterInner() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [subscribersLoading, setSubscribersLoading] = useState(false);
   const [subscriberFilter, setSubscriberFilter] = useState<"ALL" | "active" | "unsubscribed">("ALL");
+
+  const [research, setResearch] = useState<ResearchData | null>(null);
+  const [researchLoading, setResearchLoading] = useState(false);
+  const [seoRankings, setSeoRankings] = useState<any[]>([]);
+  const [seoLoading, setSeoLoading] = useState(false);
 
   const refresh = async () => {
     try {
@@ -133,12 +161,40 @@ function ControlCenterInner() {
     }
   }, []);
 
+  const fetchResearch = useCallback(async () => {
+    setResearchLoading(true);
+    try {
+      const res = await fetch("/api/control/research");
+      const data = await res.json();
+      setResearch(data);
+    } catch {
+      setResearch(null);
+    } finally {
+      setResearchLoading(false);
+    }
+  }, []);
+
+  const fetchSeo = useCallback(async () => {
+    setSeoLoading(true);
+    try {
+      const res = await fetch("/api/control/seo");
+      const data = await res.json();
+      setSeoRankings(data.rankings ?? []);
+    } catch {
+      setSeoRankings([]);
+    } finally {
+      setSeoLoading(false);
+    }
+  }, []);
+
   useEffect(() => { refresh(); }, []);
   useEffect(() => {
     if (tab === "articles") fetchArticles();
     if (tab === "newsletters") fetchNewsletters();
     if (tab === "subscribers") fetchSubscribers();
-  }, [tab, fetchArticles, fetchNewsletters, fetchSubscribers]);
+    if (tab === "research") fetchResearch();
+    if (tab === "seo") fetchSeo();
+  }, [tab, fetchArticles, fetchNewsletters, fetchSubscribers, fetchResearch, fetchSeo]);
 
   const runAction = async (actionName: string, id?: string) => {
     setBusy(actionName);
@@ -296,7 +352,10 @@ function ControlCenterInner() {
               {busy === "research" ? "Running..." : "Run research"}
             </button>
             <button className="button button-outline" disabled={Boolean(busy)} onClick={function () { runAction("generate-articles"); }}>
-              {busy === "generate-articles" ? "Generating..." : "Generate 4 articles"}
+              {busy === "generate-articles" ? "Generating..." : "Generate 1 article"}
+            </button>
+            <button className="button button-outline" disabled={Boolean(busy)} onClick={function () { runAction("generate-articles-batch"); }}>
+              {busy === "generate-articles-batch" ? "Generating..." : "Generate 4 articles"}
             </button>
             <button className="button button-outline" disabled={Boolean(busy)} onClick={function () { runAction("generate"); }}>
               {busy === "generate" ? "Generating..." : "Generate newsletter guide"}
@@ -304,10 +363,12 @@ function ControlCenterInner() {
           </div>
 
           <div className="control-tabs">
-            <TabButton label="QUEUE" active={tab === "queue"} badge={pendingArticles.length} onClick={function () { setTab("queue"); }} />
+            <TabButton label="STATUS" active={tab === "queue"} onClick={function () { setTab("queue"); }} />
             <TabButton label="ARTICLES" active={tab === "articles"} onClick={function () { setTab("articles"); }} />
             <TabButton label="NEWSLETTERS" active={tab === "newsletters"} onClick={function () { setTab("newsletters"); }} />
             <TabButton label="SUBSCRIBERS" active={tab === "subscribers"} badge={activeSubscriberCount} onClick={function () { setTab("subscribers"); }} />
+            <TabButton label="RESEARCH" active={tab === "research"} badge={research?.stats?.totalArticles || 0} onClick={function () { setTab("research"); }} />
+            <TabButton label="SEO" active={tab === "seo"} onClick={function () { setTab("seo"); }} />
             <TabButton label="SYSTEM" active={tab === "system"} onClick={function () { setTab("system"); }} />
           </div>
 
@@ -344,6 +405,19 @@ function ControlCenterInner() {
               busy={busy}
               onRefresh={fetchNewsletters}
               onAction={newsletterAction}
+              onClearAll={async () => {
+                setBusy("clear-newsletters");
+                try {
+                  await fetch("/api/control", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "clear-newsletters" }),
+                  });
+                  fetchNewsletters();
+                } finally {
+                  setBusy("");
+                }
+              }}
             />
           )}
 
@@ -359,6 +433,14 @@ function ControlCenterInner() {
               onRefresh={fetchSubscribers}
               onAction={subscriberAction}
             />
+          )}
+
+          {tab === "research" && (
+            <ResearchTab data={research} loading={researchLoading} onRefresh={fetchResearch} />
+          )}
+
+          {tab === "seo" && (
+            <SeoTab rankings={seoRankings} loading={seoLoading} onRefresh={fetchSeo} />
           )}
 
           {tab === "system" && (
@@ -589,21 +671,30 @@ function NewslettersTab({
   busy,
   onRefresh,
   onAction,
+  onClearAll,
 }: {
   newsletters: NewsletterIssue[];
   loading: boolean;
   busy: string;
   onRefresh: () => void;
   onAction: (id: string, status: string | "DELETE") => void;
+  onClearAll: () => void;
 }) {
   return (
     <div className="control-tab-content">
       <div className="control-section">
         <div className="control-section-header">
           <div className="card-kicker">NEWSLETTER ISSUES</div>
-          <button className="button button-outline button-sm" onClick={onRefresh} disabled={loading}>
-            {loading ? "Loading..." : "Refresh"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="button button-outline button-sm" onClick={onRefresh} disabled={loading}>
+              {loading ? "Loading..." : "Refresh"}
+            </button>
+            {newsletters.length > 0 && (
+              <button className="button button-danger button-sm" disabled={Boolean(busy)} onClick={onClearAll}>
+                CLEAR ALL
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -613,7 +704,7 @@ function NewslettersTab({
         ) : (
           <div className="content-list">
             {newsletters.map(function (issue) {
-              const badgeClass = issue?.status === "APPROVED" || issue?.status === "SENT" ? "published" : "pending";
+              const badgeClass = issue?.status === "APPROVED" || issue?.status === "SENT" ? "published" : issue?.status === "ARCHIVED" ? "rejected" : "pending";
               const content = issue?.content || {};
               return (
                 <div className="content-item" key={issue?.id || Math.random()}>
@@ -765,11 +856,17 @@ function SystemTab({ state }: { state: { articleGenerations: ArticleGen[]; timel
         const val = localStorage.getItem(authKey);
         if (val) {
           setPuterToken(val);
-          setPuterMsg("Token extracted. Copy to PUTER_AUTH_TOKEN env var.");
+          // Persist to .env.local
+          fetch("/api/control/env", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: val }),
+          }).then(() => setPuterMsg("Token extracted and saved to .env.local. Add PUTERJS_API_KEY to Vercel env vars."))
+            .catch(() => setPuterMsg("Token extracted. Copy to .env.local as PUTERJS_API_KEY."));
         }
       }
       if (!puterToken) {
-        setPuterMsg("Signed in. Get your token from puter.com/account → API Keys, then paste below.");
+        setPuterMsg("Signed in. Token not found in localStorage. Go to puter.com/account → API Keys and paste manually below.");
       }
     } catch (e: any) {
       setPuterError(e?.message || "Sign in failed");
@@ -798,16 +895,30 @@ function SystemTab({ state }: { state: { articleGenerations: ArticleGen[]; timel
     <div className="control-tab-content">
       <div className="control-panels">
         <div className="control-section">
-          <div className="card-kicker">PUTER.JS AI SETUP</div>
+          <div className="card-kicker">AI PROVIDERS</div>
           <div className="content-item">
             <div className="content-item-main">
-              <div className="content-item-title">AI Provider: Puter.js (Unlimited, Free)</div>
+              <div className="content-item-title">Multi-Provider AI (Auto-Failover)</div>
+              <div className="content-item-meta">
+                <span className="status-badge published">OPENROUTER</span>
+                <span className="status-badge published">GROQ</span>
+                <span className="status-badge pending">PUTER</span>
+                <span className="status-badge pending">GEMINI</span>
+              </div>
+              <div className="content-item-excerpt" style={{ marginTop: 8 }}>
+                Tries OpenRouter → Groq → Puter → Gemini. First available wins. Get free keys at <a href="https://openrouter.ai" target="_blank" rel="noopener" style={{ color: "#7dd3a0" }}>openrouter.ai</a> and <a href="https://console.groq.com" target="_blank" rel="noopener" style={{ color: "#7dd3a0" }}>console.groq.com</a> (no credit card).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="control-section">
+          <div className="card-kicker">PUTER.JS SIGN IN</div>
+          <div className="content-item">
+            <div className="content-item-main">
               <div className="content-item-meta">
                 <span className={"status-badge " + (puterReady ? "published" : "pending")}>{puterReady ? "READY" : "LOADING"}</span>
                 {puterUser && <span>User: {puterUser}</span>}
-              </div>
-              <div className="content-item-excerpt" style={{ marginTop: 8 }}>
-                Sign in with Puter to get a free auth token for Claude/GPT access. No API keys needed.
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                 <button className="button button-primary button-sm" disabled={!puterReady || puterBusy} onClick={puterSignIn}>
@@ -822,60 +933,8 @@ function SystemTab({ state }: { state: { articleGenerations: ArticleGen[]; timel
               {puterToken && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>AUTH TOKEN (click to copy):</div>
-                  <div
-                    onClick={copyToken}
-                    style={{
-                      padding: "8px 12px",
-                      background: "#0a0e17",
-                      border: "1px solid rgba(138,180,248,0.2)",
-                      borderRadius: 8,
-                      fontFamily: "monospace",
-                      fontSize: 11,
-                      color: "#7dd3a0",
-                      cursor: "pointer",
-                      wordBreak: "break-all",
-                      maxHeight: 60,
-                      overflow: "auto",
-                    }}
-                  >
+                  <div onClick={copyToken} style={{ padding: "8px 12px", background: "#0a0e17", border: "1px solid rgba(138,180,248,0.2)", borderRadius: 8, fontFamily: "monospace", fontSize: 11, color: "#7dd3a0", cursor: "pointer", wordBreak: "break-all", maxHeight: 60, overflow: "auto" }}>
                     {puterToken}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                    Set this as PUTER_AUTH_TOKEN in .env.local (dev) or Vercel env vars (prod).
-                  </div>
-                </div>
-              )}
-              {!puterToken && puterUser && (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>PASTE YOUR PUTER AUTH TOKEN:</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type="text"
-                      placeholder="Paste token from puter.com/account"
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        background: "#0a0e17",
-                        border: "1px solid rgba(138,180,248,0.2)",
-                        borderRadius: 8,
-                        fontFamily: "monospace",
-                        fontSize: 11,
-                        color: "#dbeafe",
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const val = (e.target as HTMLInputElement).value.trim();
-                          if (val) setPuterToken(val);
-                        }
-                      }}
-                    />
-                    <button className="button button-outline button-sm" onClick={() => {
-                      const input = document.querySelector('input[placeholder*="puter"]') as HTMLInputElement;
-                      if (input?.value?.trim()) setPuterToken(input.value.trim());
-                    }}>Save</button>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                    Get token: <a href="https://puter.com" target="_blank" rel="noopener" style={{ color: "#7dd3a0" }}>puter.com</a> → Sign in → Account → API Keys
                   </div>
                 </div>
               )}
@@ -930,6 +989,237 @@ function SystemTab({ state }: { state: { articleGenerations: ArticleGen[]; timel
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ResearchTab({ data, loading, onRefresh }: { data: ResearchData | null; loading: boolean; onRefresh: () => void }) {
+  if (loading && !data) {
+    return <div className="control-tab-content"><p className="empty-state">Loading research data...</p></div>;
+  }
+
+  if (!data) {
+    return <div className="control-tab-content"><p className="empty-state">Failed to load research data.</p></div>;
+  }
+
+  const stats = data.stats;
+  const topSources = Object.entries(stats.sourcesBreakdown).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const topKeywords = Object.entries(stats.keywordsBreakdown).sort((a, b) => b[1] - a[1]).slice(0, 15);
+
+  return (
+    <div className="control-tab-content">
+      <div className="control-panels">
+        <div className="control-section">
+          <div className="control-section-header">
+            <div className="card-kicker">RESEARCH STATS</div>
+            <button className="button button-outline button-sm" disabled={loading} onClick={onRefresh}>
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+          <div className="metric-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <Metric label="ARTICLES" value={String(stats.totalArticles)} detail="Raw research articles" />
+            <Metric label="GROUPS" value={String(stats.totalGroups)} detail="Deduplicated topics" />
+            <Metric label="ANALYSES" value={String(stats.totalAnalyses)} detail="AI-analyzed groups" />
+          </div>
+          {topSources.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>TOP SOURCES</div>
+              {topSources.map(([source, count]) => (
+                <div key={source} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11, borderBottom: "1px solid var(--line)" }}>
+                  <span>{source}</span>
+                  <span style={{ color: "var(--acid)" }}>{count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {topKeywords.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>TOP KEYWORDS</div>
+              {topKeywords.map(([kw, count]) => (
+                <div key={kw} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11, borderBottom: "1px solid var(--line)" }}>
+                  <span>{kw}</span>
+                  <span style={{ color: "var(--orange)" }}>{count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="control-section">
+          <div className="card-kicker">RECENT RESEARCH ARTICLES</div>
+          {data.articles.length === 0 ? (
+            <p className="empty-state">No research articles yet. Run the research pipeline.</p>
+          ) : (
+            <div className="content-list" style={{ maxHeight: 500, overflow: "auto" }}>
+              {data.articles.slice(0, 30).map((article) => (
+                <div className="content-item" key={article.id}>
+                  <div className="content-item-main">
+                    <div className="content-item-title">
+                      <a href={article.url} target="_blank" rel="noopener" style={{ color: "var(--acid)", textDecoration: "none" }}>
+                        {article.title}
+                      </a>
+                    </div>
+                    <div className="content-item-meta">
+                      <span className="status-badge published">{article.source}</span>
+                      <span>{article.publisher}</span>
+                      <span>{article.keyword}</span>
+                      {article.sentiment != null && <span style={{ color: article.sentiment > 0 ? "var(--acid)" : "#ff6b6b" }}>sentiment: {article.sentiment.toFixed(2)}</span>}
+                    </div>
+                    <div className="content-item-excerpt">{article.summary}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {data.groups.length > 0 && (
+        <div className="control-section" style={{ marginTop: 20 }}>
+          <div className="card-kicker">RESEARCH GROUPS (DEDUPLICATED TOPICS)</div>
+          <div className="content-list">
+            {data.groups.map((group) => (
+              <div className="content-item" key={group.id}>
+                <div className="content-item-main">
+                  <div className="content-item-title">{group.topic}</div>
+                  <div className="content-item-meta">
+                    <span className={"status-badge " + (group.importance === "CRITICAL" ? "rejected" : group.importance === "HIGH" ? "pending" : "published")}>
+                      {group.importance}
+                    </span>
+                    <span>{group.source_count} sources</span>
+                    <span>{group.keyword}</span>
+                    <span>freshness: {group.freshness_score.toFixed(2)}</span>
+                  </div>
+                  <div className="content-item-excerpt">{group.summary}</div>
+                  {group.key_facts.length > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)" }}>
+                      <strong>Key facts:</strong> {group.key_facts.slice(0, 3).join(" | ")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.analyses.length > 0 && (
+        <div className="control-section" style={{ marginTop: 20 }}>
+          <div className="card-kicker">AI ANALYSES</div>
+          <div className="content-list">
+            {data.analyses.map((analysis) => (
+              <div className="content-item" key={analysis.id}>
+                <div className="content-item-main">
+                  <div className="content-item-meta">
+                    {analysis.is_breaking && <span className="status-badge rejected">BREAKING</span>}
+                    {analysis.is_important && <span className="status-badge pending">IMPORTANT</span>}
+                  </div>
+                  <div className="content-item-excerpt">{analysis.what_happened}</div>
+                  {analysis.technical_significance && (
+                    <div style={{ marginTop: 4, fontSize: 11, color: "var(--muted)" }}>
+                      <strong>Technical significance:</strong> {analysis.technical_significance}
+                    </div>
+                  )}
+                  {analysis.why_it_matters && (
+                    <div style={{ marginTop: 4, fontSize: 11, color: "var(--acid)" }}>
+                      <strong>Why it matters:</strong> {analysis.why_it_matters}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeoTab({ rankings, loading, onRefresh }: { rankings: any[]; loading: boolean; onRefresh: () => void }) {
+  const scoreColor = (s: number) => s >= 80 ? "var(--acid)" : s >= 60 ? "var(--orange)" : "#ff6b6b";
+
+  return (
+    <div className="control-tab-content">
+      <div className="control-section">
+        <div className="control-section-header">
+          <div className="card-kicker">SEO RANKINGS</div>
+          <button className="button button-outline button-sm" disabled={loading} onClick={onRefresh}>
+            {loading ? "Analyzing..." : "Run SEO Analysis"}
+          </button>
+        </div>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", marginBottom: 16 }}>
+          Articles ranked by SEO score (readability 30% + engagement 30% + keyword density 20% + meta description 20%)
+        </p>
+
+        {loading && rankings.length === 0 ? (
+          <p className="empty-state">Running SEO analysis on all articles...</p>
+        ) : rankings.length === 0 ? (
+          <p className="empty-state">No articles to analyze. Generate articles first.</p>
+        ) : (
+          <div className="content-list">
+            {rankings.map((r, i) => (
+              <div className="content-item" key={r.id} style={{ alignItems: "flex-start" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 500, color: scoreColor(r.overallScore), minWidth: 40, textAlign: "center", paddingTop: 4 }}>
+                  {i + 1}
+                </div>
+                <div className="content-item-main">
+                  <div className="content-item-title">
+                    <a href={`/vault/${r.slug}`} target="_blank" rel="noopener" style={{ color: "var(--acid)", textDecoration: "none" }}>
+                      {r.title}
+                    </a>
+                  </div>
+                  <div className="content-item-meta">
+                    <span className={"status-badge " + (r.status === "PUBLISHED" ? "published" : "pending")}>{r.status}</span>
+                    <span>{r.category}</span>
+                    <span>{r.xp} XP</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <span style={{ color: "var(--muted)" }}>READABILITY </span>
+                      <span style={{ color: scoreColor(r.readabilityScore) }}>{r.readabilityScore}/100</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "var(--muted)" }}>ENGAGEMENT </span>
+                      <span style={{ color: scoreColor(r.engagementScore) }}>{r.engagementScore}/100</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "var(--muted)" }}>KEYWORDS </span>
+                      <span style={{ color: Math.abs(r.keywordDensity - 2.5) < 1.5 ? "var(--acid)" : "var(--orange)" }}>{r.keywordDensity.toFixed(1)}%</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "var(--muted)" }}>OVERALL </span>
+                      <span style={{ color: scoreColor(r.overallScore), fontSize: 12, fontWeight: 700 }}>{r.overallScore}/100</span>
+                    </div>
+                  </div>
+                  {r.metaDescription && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: "var(--muted)", fontStyle: "italic" }}>
+                      META: {r.metaDescription}
+                    </div>
+                  )}
+                  {r.suggestedTitle && r.suggestedTitle !== r.title && (
+                    <div style={{ marginTop: 4, fontSize: 11, color: "var(--orange)" }}>
+                      SUGGESTED: {r.suggestedTitle}
+                    </div>
+                  )}
+                  {r.contentGaps.length > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 10, color: "var(--muted)" }}>
+                      GAPS: {r.contentGaps.join(" | ")}
+                    </div>
+                  )}
+                  {r.keywords.length > 0 && (
+                    <div style={{ marginTop: 4, fontSize: 10, color: "var(--acid)" }}>
+                      KW: {r.keywords.slice(0, 5).join(", ")}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700, color: scoreColor(r.overallScore), minWidth: 50, textAlign: "right" }}>
+                  {r.overallScore}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

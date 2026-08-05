@@ -9,7 +9,7 @@ function getSigningSecret(): string {
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.GEMINI_API_KEY ||
     process.env.CRON_SECRET ||
-    "neon-forge-dev-only-secret"
+    "crystal-forge-dev-only-secret"
   );
 }
 

@@ -1,13 +1,4 @@
-import { env } from "@/lib/env";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-let genAI: GoogleGenerativeAI | null = null;
-
-function getClient() {
-  if (!env.geminiApiKey) throw new Error("GEMINI_API_KEY not configured");
-  if (!genAI) genAI = new GoogleGenerativeAI(env.geminiApiKey);
-  return genAI;
-}
+import { generateContent } from "@/lib/puter";
 
 export type GeminiSeoResult = {
   keywords: string[];
@@ -27,9 +18,6 @@ export async function analyzeWithGemini(input: {
   topics: string[];
   existingSlugs?: string[];
 }): Promise<GeminiSeoResult> {
-  const client = getClient();
-  const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
-
   const prompt = `You are an SEO expert. Analyze the following article and provide optimization data.
 
 ARTICLE TITLE: ${input.title}
@@ -57,8 +45,7 @@ Rules:
 - suggestedTitle: improved title with better keyword targeting, keep under 60 chars
 - keywords: 5-8 relevant keywords ranked by importance`;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text().trim();
+  const text = await generateContent(prompt);
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse Gemini response as JSON");

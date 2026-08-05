@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { generateFourArticles } from "@/articles/new-generator";
+import { generateFourArticles } from "@/articles/generator";
 import { getAllGeneratedArticles } from "@/lib/generated-articles";
 import { publishDiscord } from "@/distribution/discord-publisher";
 

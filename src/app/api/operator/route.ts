@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const profile =
     (memories?.[0]?.value as unknown as AudienceProfile | undefined) ??
     { topics: [], skillLevel: "BEGINNER" as const, preferredFormats: [], updatedAt: new Date().toISOString() };
-  const recommendation = recommendToday(profile);
+  const recommendation = await recommendToday(profile);
   await remember(decisionMemory(recommendation.action, recommendation.reason));
   return NextResponse.json({ profile, recommendation });
 }

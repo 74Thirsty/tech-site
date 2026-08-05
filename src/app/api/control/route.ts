@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { getControlState, loadControlState, updateControl, recordArticleGeneration, recordResearch } from "@/control/state";
 import { runResearchJob } from "@/jobs/research-job";
-import { generateFourArticles } from "@/articles/new-generator";
+import { generateFourArticles } from "@/articles/generator";
+
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const user = requireAuth(request);

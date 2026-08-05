@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -41,7 +42,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <div className="auth-card">
         <a className="brand" href="/">
-          <img className="brand-mark" src="/favicon.png" alt="Stratagem" width="26" height="26" />
+          <Image className="brand-mark" src="/favicon.png" alt="Stratagem" width={26} height={26} />
           <span>STRATAGEM</span>
         </a>
         <div className="card-kicker">USERNAME / {mode.toUpperCase()}</div>

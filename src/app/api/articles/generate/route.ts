@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { generateFourArticles } from "@/articles/new-generator";
+import { generateFourArticles } from "@/articles/generator";
 import { publishDiscord } from "@/distribution/discord-publisher";
+
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const user = requireAuth(request);

@@ -8,7 +8,7 @@ create table if not exists public.projects (id uuid primary key default gen_rand
 create table if not exists public.books (id uuid primary key default gen_random_uuid(), slug text unique not null, title text not null, description text not null, purchase_url text, sample_url text);
 create table if not exists public.events (id uuid primary key default gen_random_uuid(), title text not null, starts_at timestamptz not null, location text not null, registration_url text, status text not null default 'OPEN');
 create table if not exists public.subscribers (id uuid primary key default gen_random_uuid(), email text unique not null, source text not null default 'newsletter', status text not null default 'active', created_at timestamptz not null default now());
-create table if not exists public.newsletter_issues (id uuid primary key default gen_random_uuid(), subject text not null, status text not null default 'DRAFT', content jsonb not null default '{}', sent_at timestamptz, open_rate numeric, click_rate numeric, revenue numeric not null default 0);
+create table if not exists public.newsletter_issues (id uuid primary key default gen_random_uuid(), subject text not null, status text not null default 'DRAFT', content jsonb not null default '{}', sent_at timestamptz, open_rate numeric, click_rate numeric, revenue numeric not null default 0, created_at timestamptz not null default now());
 alter table public.newsletter_issues add column if not exists revenue numeric not null default 0;
 create table if not exists public.analytics_events (id uuid primary key default gen_random_uuid(), event_name text not null, path text, article_slug text, metadata jsonb not null default '{}', created_at timestamptz not null default now());
 create table if not exists public.achievements (id uuid primary key default gen_random_uuid(), slug text unique not null, title text not null, description text not null, xp integer not null default 0);
@@ -17,6 +17,18 @@ create table if not exists public.missions (id uuid primary key default gen_rand
 create table if not exists public.job_runs (id uuid primary key default gen_random_uuid(), job_name text not null, status text not null, started_at timestamptz not null, finished_at timestamptz, error_state jsonb not null default '[]', output_count integer not null default 0);
 create table if not exists public.agent_memory (id uuid primary key default gen_random_uuid(), kind text not null, memory_key text not null, value jsonb not null default '{}', confidence numeric not null default 0, source text not null, created_at timestamptz not null default now());
 create table if not exists public.content_revenue (id uuid primary key default gen_random_uuid(), slug text unique not null, views integer not null default 0, subscribers integer not null default 0, purchases integer not null default 0, revenue numeric not null default 0, updated_at timestamptz not null default now());
+
+create table if not exists public.research_articles (id uuid primary key default gen_random_uuid(), slug text not null, title text not null, url text, source text not null, summary text, keywords text[] default '{}', importance text default 'LOW', published_at timestamptz, collected_at timestamptz default now());
+create table if not exists public.research_groups (id uuid primary key default gen_random_uuid(), topic text not null, keyword text not null, sources text[] default '{}', source_count integer default 0, importance text default 'LOW', summary text, key_facts text[] default '{}', freshness_score real default 0, average_sentiment real default 0, created_at timestamptz default now());
+create table if not exists public.research_analyses (id uuid primary key default gen_random_uuid(), group_id uuid references public.research_groups(id), what_happened text, is_breaking boolean default false, is_important boolean default false, source_disagreement boolean default false, technical_significance text, why_it_matters text, key_entities text[] default '{}', related_topics text[] default '{}', research_notes text, created_at timestamptz default now());
+
+alter table public.research_articles enable row level security;
+alter table public.research_groups enable row level security;
+alter table public.research_analyses enable row level security;
+create policy "Service role full access research_articles" on public.research_articles for all using (auth.role() = 'service_role');
+create policy "Service role full access research_groups" on public.research_groups for all using (auth.role() = 'service_role');
+create policy "Service role full access research_analyses" on public.research_analyses for all using (auth.role() = 'service_role');
+create policy "Service role full access newsletter_issues" on public.newsletter_issues for all using (auth.role() = 'service_role');
 
 alter table public.profiles enable row level security;
 alter table public.user_achievements enable row level security;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { findBestImage } from "@/lib/pexels";
 import { saveImage, loadImages } from "@/content/image-store";
-import articles from "@/content/articles.json";
+import { getAllGeneratedArticles } from "@/lib/generated-articles";
 
 export const maxDuration = 60;
 
@@ -14,9 +14,11 @@ export async function POST(request: Request) {
   const targetSlug = typeof body.slug === "string" ? body.slug : null;
 
   const existing = await loadImages();
+  const allArticles = await getAllGeneratedArticles();
+
   const targets = targetSlug
-    ? articles.filter((a) => a.slug === targetSlug)
-    : articles.filter((a) => !existing[a.slug]);
+    ? allArticles.filter((a) => a.slug === targetSlug)
+    : allArticles.filter((a) => !existing[a.slug]);
 
   if (targets.length === 0) {
     return NextResponse.json({ message: "All articles already have images", skipped: true });

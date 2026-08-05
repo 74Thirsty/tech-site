@@ -1,4 +1,3 @@
-import articleData from "@/content/articles.json";
 import projectData from "@/content/projects.json";
 import bookData from "@/content/books.json";
 import eventData from "@/content/events.json";
@@ -14,7 +13,6 @@ export type GitHubRepo = { name:string; description:string; url:string; language
 export type NpmPackage = { name:string; version:string; description:string; url:string; weeklyDownloads:number; keywords:string[] };
 export type PypiPackage = { name:string; version:string; description:string; url:string; repoUrl:string };
 export type DockerImage = { name:string; description:string; url:string; pulls:number; category:string };
-export const articles = articleData as Article[];
 export const projects = projectData;
 export const books = bookData as Book[];
 export const events = eventData;

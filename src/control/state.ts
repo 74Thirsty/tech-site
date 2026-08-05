@@ -1,4 +1,4 @@
-import { articles, books, projects } from "@/lib/content";
+import { books, projects } from "@/lib/content";
 import { generatePremiumGuide, type NewsletterGuide } from "@/newsletter/guide-generator";
 import { supabaseRequest } from "@/lib/supabase";
 import { getPendingArticles, getAllGeneratedArticles } from "@/lib/generated-articles";
@@ -36,7 +36,7 @@ if (!globalState.neonForgeControl) {
     queue: [],
     timeline: [],
     lastResearch: null,
-    counts: { articles: articles.length, projects: projects.length, books: books.length, pendingArticles: 0, publishedArticles: 0, newsletters: 0, subscribers: 0 },
+    counts: { articles: 0, projects: projects.length, books: books.length, pendingArticles: 0, publishedArticles: 0, newsletters: 0, subscribers: 0 },
     articleGenerations: [],
     researchRuns: 0,
   };
@@ -48,7 +48,7 @@ export function getControlState(): ControlState {
 
 export async function loadControlState(): Promise<ControlState> {
   const state = getControlState();
-  state.counts = { articles: articles.length, projects: projects.length, books: books.length, pendingArticles: 0, publishedArticles: 0, newsletters: 0, subscribers: 0 };
+  state.counts = { articles: 0, projects: projects.length, books: books.length, pendingArticles: 0, publishedArticles: 0, newsletters: 0, subscribers: 0 };
 
   if (hasSupabase()) {
     try {
@@ -58,6 +58,7 @@ export async function loadControlState(): Promise<ControlState> {
         supabaseRequest<Array<{ id: string }>>("newsletter_issues?select=id", { method: "GET" }),
         supabaseRequest<Array<{ email: string }>>("subscribers?select=email", { method: "GET" }),
       ]);
+      state.counts.articles = allArticles.length;
       state.counts.pendingArticles = pending.length;
       state.counts.publishedArticles = allArticles.filter(a => a.status === "PUBLISHED").length;
       state.counts.newsletters = newsletters?.length ?? 0;
@@ -142,7 +143,7 @@ export function recordArticleGeneration(result: ArticleGenerationResult): void {
       ? `Generated ${successful} articles — pending approval`
       : `Article generation failed: ${result.errors.join(", ")}`
   );
-  state.counts = { articles: articles.length, projects: projects.length, books: books.length, pendingArticles: state.counts.pendingArticles + successful, publishedArticles: state.counts.publishedArticles, newsletters: state.counts.newsletters, subscribers: state.counts.subscribers };
+  state.counts = { articles: state.counts.articles + successful, projects: state.counts.projects, books: state.counts.books, pendingArticles: state.counts.pendingArticles + successful, publishedArticles: state.counts.publishedArticles, newsletters: state.counts.newsletters, subscribers: state.counts.subscribers };
 }
 
 export function recordResearch(result: { outputCount: number; errors: string[] }): void {

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, Component, type ReactNode } from "react";
+import Image from "next/image";
 
 class ErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -255,7 +256,7 @@ function ControlCenterInner() {
     <main className="control-page">
       <header className="site-header">
         <a className="brand" href="/">
-          <img className="brand-mark" src="/favicon.png" alt="Stratagem" width="26" height="26" />
+          <Image className="brand-mark" src="/favicon.png" alt="Stratagem" width={26} height={26} />
           <span>STRATAGEM</span>
         </a>
         <span className="card-kicker">CONTROL CENTER / LIVE</span>
@@ -721,9 +722,167 @@ function SubscribersTab({
 function SystemTab({ state }: { state: { articleGenerations: ArticleGen[]; timeline: string[]; researchRuns: number; lastResearch: string | null } }) {
   const gens = state?.articleGenerations || [];
   const timeline = state?.timeline || [];
+  const [puterReady, setPuterReady] = useState(false);
+  const [puterUser, setPuterUser] = useState<string | null>(null);
+  const [puterToken, setPuterToken] = useState<string | null>(null);
+  const [puterBusy, setPuterBusy] = useState(false);
+  const [puterError, setPuterError] = useState("");
+  const [puterMsg, setPuterMsg] = useState("");
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://js.puter.com/v2/";
+    script.defer = true;
+    script.onload = () => {
+      const check = setInterval(() => {
+        if ((window as any).puter?.ai?.chat) {
+          setPuterReady(true);
+          clearInterval(check);
+          (window as any).puter.auth.getUser().then((u: any) => {
+            if (u) setPuterUser(u.username || u.email || u.id || "signed in");
+          }).catch(() => {});
+        }
+      }, 500);
+    };
+    document.head.appendChild(script);
+  }, []);
+
+  const puterSignIn = async () => {
+    setPuterBusy(true);
+    setPuterError("");
+    setPuterMsg("");
+    try {
+      await (window as any).puter.auth.signIn();
+      const user = await (window as any).puter.auth.getUser();
+      setPuterUser(user?.username || user?.email || user?.id || "signed in");
+      setPuterMsg("Signed in. Extracting token...");
+      // Puter stores auth in localStorage - try common keys
+      const keys = Object.keys(localStorage);
+      const authKey = keys.find(k => k.toLowerCase().includes("auth") && k.toLowerCase().includes("token"))
+        || keys.find(k => k.toLowerCase().includes("puter") && k.toLowerCase().includes("token"))
+        || keys.find(k => k.startsWith("puter_"));
+      if (authKey) {
+        const val = localStorage.getItem(authKey);
+        if (val) {
+          setPuterToken(val);
+          setPuterMsg("Token extracted. Copy to PUTER_AUTH_TOKEN env var.");
+        }
+      }
+      if (!puterToken) {
+        setPuterMsg("Signed in. Get your token from puter.com/account → API Keys, then paste below.");
+      }
+    } catch (e: any) {
+      setPuterError(e?.message || "Sign in failed");
+    } finally {
+      setPuterBusy(false);
+    }
+  };
+
+  const puterSignOut = async () => {
+    try {
+      await (window as any).puter.auth.signOut();
+      setPuterUser(null);
+      setPuterToken(null);
+      setPuterMsg("Signed out.");
+    } catch {}
+  };
+
+  const copyToken = () => {
+    if (puterToken) {
+      navigator.clipboard.writeText(puterToken);
+      setPuterMsg("Token copied to clipboard.");
+    }
+  };
+
   return (
     <div className="control-tab-content">
       <div className="control-panels">
+        <div className="control-section">
+          <div className="card-kicker">PUTER.JS AI SETUP</div>
+          <div className="content-item">
+            <div className="content-item-main">
+              <div className="content-item-title">AI Provider: Puter.js (Unlimited, Free)</div>
+              <div className="content-item-meta">
+                <span className={"status-badge " + (puterReady ? "published" : "pending")}>{puterReady ? "READY" : "LOADING"}</span>
+                {puterUser && <span>User: {puterUser}</span>}
+              </div>
+              <div className="content-item-excerpt" style={{ marginTop: 8 }}>
+                Sign in with Puter to get a free auth token for Claude/GPT access. No API keys needed.
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                <button className="button button-primary button-sm" disabled={!puterReady || puterBusy} onClick={puterSignIn}>
+                  {puterBusy ? "Signing in..." : puterUser ? "Re-sign in" : "Sign in with Puter"}
+                </button>
+                {puterUser && (
+                  <button className="button button-outline button-sm" onClick={puterSignOut}>Sign out</button>
+                )}
+              </div>
+              {puterError && <div style={{ color: "#ff6b6b", marginTop: 8, fontSize: 13 }}>{puterError}</div>}
+              {puterMsg && <div style={{ color: "#7dd3a0", marginTop: 8, fontSize: 13 }}>{puterMsg}</div>}
+              {puterToken && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>AUTH TOKEN (click to copy):</div>
+                  <div
+                    onClick={copyToken}
+                    style={{
+                      padding: "8px 12px",
+                      background: "#0a0e17",
+                      border: "1px solid rgba(138,180,248,0.2)",
+                      borderRadius: 8,
+                      fontFamily: "monospace",
+                      fontSize: 11,
+                      color: "#7dd3a0",
+                      cursor: "pointer",
+                      wordBreak: "break-all",
+                      maxHeight: 60,
+                      overflow: "auto",
+                    }}
+                  >
+                    {puterToken}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+                    Set this as PUTER_AUTH_TOKEN in .env.local (dev) or Vercel env vars (prod).
+                  </div>
+                </div>
+              )}
+              {!puterToken && puterUser && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>PASTE YOUR PUTER AUTH TOKEN:</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Paste token from puter.com/account"
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        background: "#0a0e17",
+                        border: "1px solid rgba(138,180,248,0.2)",
+                        borderRadius: 8,
+                        fontFamily: "monospace",
+                        fontSize: 11,
+                        color: "#dbeafe",
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const val = (e.target as HTMLInputElement).value.trim();
+                          if (val) setPuterToken(val);
+                        }
+                      }}
+                    />
+                    <button className="button button-outline button-sm" onClick={() => {
+                      const input = document.querySelector('input[placeholder*="puter"]') as HTMLInputElement;
+                      if (input?.value?.trim()) setPuterToken(input.value.trim());
+                    }}>Save</button>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+                    Get token: <a href="https://puter.com" target="_blank" rel="noopener" style={{ color: "#7dd3a0" }}>puter.com</a> → Sign in → Account → API Keys
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="control-section">
           <div className="card-kicker">ARTICLE GENERATIONS</div>
           {gens.length === 0 ? (

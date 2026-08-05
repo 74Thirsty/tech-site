@@ -1,4 +1,4 @@
-import { articles } from "@/lib/content";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getChartForArticle } from "@/lib/charts";
 import { getArticleImages } from "@/lib/pexels";
@@ -6,6 +6,7 @@ import { getGeneratedArticle } from "@/lib/generated-articles";
 import MermaidDiagram from "@/components/MermaidDiagram";
 import ArticleImage from "@/components/ArticleImage";
 import ArticleFooter from "@/components/ArticleFooter";
+import BookAd from "@/components/BookAd";
 
 export const dynamic = "force-dynamic";
 
@@ -30,26 +31,21 @@ function splitBodyAtPositions(html: string): { first: string; second: string; th
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  let article = articles.find((item) => item.slug === slug);
+  const generated = await getGeneratedArticle(slug);
 
-  if (!article) {
-    const generated = await getGeneratedArticle(slug);
-    if (generated) {
-      article = {
-        slug: generated.slug,
-        title: generated.title,
-        category: generated.category,
-        difficulty: generated.difficulty as "BEGINNER" | "INTERMEDIATE" | "ADVANCED",
-        readTime: generated.read_time,
-        xp: generated.xp,
-        excerpt: generated.excerpt,
-        tags: generated.tags ?? [],
-        body: generated.body,
-      };
-    }
-  }
+  if (!generated) notFound();
 
-  if (!article) notFound();
+  const article = {
+    slug: generated.slug,
+    title: generated.title,
+    category: generated.category,
+    difficulty: generated.difficulty as "BEGINNER" | "INTERMEDIATE" | "ADVANCED",
+    readTime: generated.read_time,
+    xp: generated.xp,
+    excerpt: generated.excerpt,
+    tags: generated.tags ?? [],
+    body: generated.body,
+  };
 
   const chart = getChartForArticle(article.category, slug);
   const images = await getArticleImages(slug, article.category, article.tags, article.title);
@@ -60,7 +56,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     <main className="subpage">
       <header className="site-header">
         <a className="brand" href="/">
-          <img className="brand-mark" src="/favicon.png" alt="Stratagem" width="26" height="26" />
+          <Image className="brand-mark" src="/favicon.png" alt="Stratagem" width={26} height={26} />
           <span>STRATAGEM</span>
         </a>
         <a className="text-link" href="/vault">← Vault</a>
@@ -92,25 +88,13 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
             <div className="article-content" dangerouslySetInnerHTML={{ __html: sections.second }} />
 
-            {images.mid && (
-              <ArticleImage
-                url={images.mid.url}
-                alt={images.mid.alt}
-                photographer={images.mid.photographer}
-                photographerUrl={images.mid.photographerUrl}
-                sourceUrl={images.mid.sourceUrl}
-                className="article-mid-image"
-              />
-            )}
+            <BookAd />
 
             <div className="article-content" dangerouslySetInnerHTML={{ __html: sections.third }} />
           </>
         ) : (
           <div className="article-body">
-            <h2>WHY IT MATTERS</h2>
-            <p>This field note is part of the Crystal // Forge archive. The full editorial and technical walkthrough will be published here as the knowledge base expands.</p>
-            <h2>YOUR MOVE</h2>
-            <p>Open a terminal, test one idea, and return with a sharper question.</p>
+            <p>This article is pending research and generation. Content will appear here once the intelligence pipeline has collected sufficient sources.</p>
           </div>
         )}
 

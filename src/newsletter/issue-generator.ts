@@ -1,6 +1,36 @@
 import type { NewsletterIssue } from "./types";
-import { articles } from "@/lib/content";
+import { generatePremiumGuide, type NewsletterGuide } from "./guide-generator";
 
-export function generateIssue(): NewsletterIssue {
-  return {id:`signal-${new Date().toISOString().slice(0,10)}`,subject:`THE SIGNAL / ${articles[0].title}`,status:"NEEDS_REVIEW",topics:articles.slice(0,3).map((article) => article.category),openRate:0,clickRate:0,revenue:0};
+// ─── Newsletter Issue Generator ──────────────────────────────────────────────
+// Generates a complete newsletter issue from the research pipeline.
+// No hardcoded content — everything comes from Gemini + live research.
+
+let cachedGuide: NewsletterGuide | null = null;
+
+export async function generateIssue(): Promise<{
+  issue: NewsletterIssue;
+  guide: NewsletterGuide;
+}> {
+  const guide = await generatePremiumGuide();
+  cachedGuide = guide;
+
+  const issue: NewsletterIssue = {
+    id: guide.id,
+    subject: guide.subject,
+    status: guide.status,
+    topics: guide.topics,
+    openRate: 0,
+    clickRate: 0,
+    revenue: 0,
+  };
+
+  return { issue, guide };
+}
+
+export function getCachedGuide(): NewsletterGuide | null {
+  return cachedGuide;
+}
+
+export function clearCachedGuide(): void {
+  cachedGuide = null;
 }

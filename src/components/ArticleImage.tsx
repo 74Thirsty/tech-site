@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface ArticleImageProps {
   url: string;
   alt: string;
@@ -33,7 +35,7 @@ export default function ArticleImage({
 
   return (
     <figure className={className}>
-      <img
+      <Image
         src={url}
         alt={alt}
         width={1200}

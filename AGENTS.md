@@ -927,7 +927,7 @@ Every interaction should communicate craftsmanship. The user should subconscious
 - **Vercel project**: `stratagem1/arcade-site`
 - **Deploy command**: `vercel --prod --yes`
 - **No git remote** — all deploys via Vercel CLI directly
-- **All 13 env vars are set in Vercel** (confirmed via `vercel env ls`)
+- **All 17 env vars are set in Vercel** (confirmed via `vercel env ls`)
 
 ### What Works
 
@@ -968,7 +968,7 @@ Every interaction should communicate craftsmanship. The user should subconscious
 - Middleware at `src/middleware.ts` protects `/control` and 7 API routes
 - Content lives in `src/content/*.json` — static JSON files bundled at build time
 - Article body generation: `src/articles/generator.ts` (1125 lines, hard-coded content per slug)
-- Intelligence pipeline: 6 collectors (GitHub, HN, CVE, crypto, arxiv, RSS) → normalize → deduplicate → classify → rank
+- Intelligence pipeline: 9+ collectors (GitHub, HN, CVE, crypto, arxiv, RSS, NewsAPI, NewsData, CryptoPanic) → normalize → deduplicate → classify → rank
 - Gemini used for SEO analysis only (`src/seo/ml-optimizer.ts`)
 - No git remote configured — all deploys via `vercel --prod --yes`
 
@@ -990,6 +990,12 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 | `CRON_SECRET` | No | Secret token for `/api/jobs/*` endpoints |
 | `DISCORD_WEBHOOK_URL` | No | Discord incoming webhook URL |
 | `NEWSLETTER_FROM` | No | Default: `signal@neon-forge.dev` |
+| `PUTERJS_API_KEY` | No | Puter AI auth token (AI provider rotation) |
+| `OPENROUTER_API_KEY` | No | OpenRouter API key (AI provider rotation) |
+| `GROQ_API_KEY` | No | Groq API key (AI provider rotation, primary/fallback) |
+| `NEWS_API_KEY` | No | NewsAPI.org API key (news collector) |
+| `NEWSDATA_API_KEY` | No | NewsData.io API key (news collector) |
+| `CRYPTOPANIC_API_KEY` | No | CryptoPanic API key (crypto collector) |
 
 ### Rules
 

@@ -29,4 +29,7 @@ load_key CRON_SECRET
 load_key DISCORD_WEBHOOK_URL
 load_key PUTERJS_API_KEY
 load_key GROQ_API_KEY
+load_key OPENROUTER_API_KEY
+load_key NEWS_API_KEY
+load_key NEWSDATA_API_KEY
 echo "Done."

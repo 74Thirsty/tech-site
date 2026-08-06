@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { generateContent, pipelineDelay } from "@/lib/ai";
+import { searchPexels, type PexelsImage } from "@/lib/pexels";
 import { runIntelligence } from "@/intelligence/pipeline";
 import { githubCollector } from "@/intelligence/collectors/github";
 import { hackerNewsCollector } from "@/intelligence/collectors/hackernews";
@@ -35,6 +36,9 @@ export type NewsletterGuide = {
     reviewScore: number;
     reviewImage: string;
     reviewSpecs: Record<string, string>;
+    heroImage: { url: string; photographer: string; alt: string } | null;
+    sectionImages: { url: string; photographer: string; alt: string; placement: string }[];
+    researchItems: { title: string; url: string; source: string; summary: string; topics: string[]; publishedAt: string }[];
 };
 
 let cachedNewsletterAgent = "";
@@ -139,6 +143,12 @@ Respond ONLY with valid JSON (no markdown fences) in this exact format:
   "mainGuide": "<h2>PROJECT: [Project Name]</h2><p>...</p><h2>REVIEW: [Product Name]</h2><p>...</p>",
   "summary": "2-3 sentence summary of what this issue covers and why it matters",
   "furtherReading": ["Resource 1 with URL", "Resource 2 with URL"],
+  "heroImage": "Pexels search query for the newsletter hero — e.g. 'server room dark' or 'hacking code screen' or 'network cables'",
+  "sectionImages": [
+    { "query": "search query for section 1", "placement": "after-intro" },
+    { "query": "search query for section 2", "placement": "after-step-3" },
+    { "query": "search query for section 3", "placement": "before-review" }
+  ],
   "reviewImage": "Exact Pexels search query for the product image — e.g. 'MacBook Pro laptop' or 'Mechanical keyboard RGB' or 'Raspberry Pi 5'",
   "reviewSpecs": {
     "Category": "Hardware / Software / etc.",
@@ -166,6 +176,10 @@ THE DIY PROJECT (mainGuide first half):
 6. Every step must have Verification and Troubleshooting subsections
 7. End with a Completion Checklist and Quick Reference Cheat Sheet
 8. Write for someone who has NEVER done this before but wants to learn properly
+9. CONVERSATIONAL VOICE: Write as if an experienced instructor is personally teaching the reader. Every step must answer: What are we doing? Why? How? What should happen? What if something goes wrong?
+10. NO INFORMATION DUMBS: Never produce giant walls of bullets, disconnected facts, or collections of commands without explanation. Integrate information into a learning flow.
+11. EXPLANATION BEFORE ACTION: Never present an instruction without context. Explain what the command does before showing it. Describe what the reader should see after running it.
+12. STEP FORMAT: Every major procedure must follow the format from NEWSLETTER.md — Goal, Required Items, Action, Explanation, Verification, Troubleshooting. The reader must feel guided, not handed a checklist.
 
 THE PRODUCT REVIEW (mainGuide second half):
 1. Follow the REVIEW.md structure EXACTLY — Product Overview, Quick Verdict, Specifications, Real-World Performance, Setup, Feature Analysis, Strengths, Weaknesses, Ownership Experience, User Feedback, Competitor Comparison, Hidden Costs, Who Should Buy, Alternatives, Final Recommendation
@@ -186,7 +200,8 @@ GENERAL RULES:
 7. Reference the research signals where relevant — cite real recent events in both sections
 8. The review MUST be about a real, specific, purchasable product with real specs
 9. The DIY project MUST be something the reader can actually complete today
-10. This must read like content from a premium paid newsletter — not a blog post, not a tutorial site, not a product listing`;
+10. This must read like content from a premium paid newsletter — not a blog post, not a tutorial site, not a product listing
+11. CONVERSATIONAL INSTRUCTION: Write as if an expert instructor is personally walking the reader through the process. Never dump information. Explain before acting. Guide through every step. The reader must feel taught, not documented.`;
 
   const text = await generateContent(prompt);
 
@@ -198,6 +213,35 @@ GENERAL RULES:
 
   const now = new Date();
   const issueNumber = Math.floor((now.getTime() - new Date("2025-01-01").getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+
+  const sectionImages = Array.isArray(parsed.sectionImages) ? parsed.sectionImages : [];
+
+  let heroImageUrl: { url: string; photographer: string; alt: string } | null = null;
+  const fetchedImages: { url: string; photographer: string; alt: string; placement: string }[] = [];
+
+  try {
+    const heroResults = await searchPexels(parsed.heroImage || "technology dark server", 1);
+    if (heroResults.length > 0) {
+      heroImageUrl = { url: heroResults[0].url, photographer: heroResults[0].photographer, alt: heroResults[0].alt };
+    }
+  } catch { /* best-effort */ }
+
+  for (const img of sectionImages.slice(0, 4)) {
+    try {
+      const results = await searchPexels(img.query, 1);
+      if (results.length > 0) {
+        fetchedImages.push({ url: results[0].url, photographer: results[0].photographer, alt: results[0].alt, placement: img.placement });
+      }
+    } catch { /* skip on failure */ }
+  }
+
+  let reviewImageUrl = "";
+  try {
+    const reviewResults = await searchPexels(parsed.reviewImage || parsed.reviewProduct || "technology", 1);
+    if (reviewResults.length > 0) {
+      reviewImageUrl = reviewResults[0].url;
+    }
+  } catch { /* best-effort */ }
 
   return {
     id: `guide-${now.toISOString().slice(0, 10)}`,
@@ -221,7 +265,17 @@ GENERAL RULES:
     reviewProduct: parsed.reviewProduct || "",
     reviewVerdict: parsed.reviewVerdict || "WAIT",
     reviewScore: typeof parsed.reviewScore === "number" ? parsed.reviewScore : 0,
-    reviewImage: parsed.reviewImage || "",
+    reviewImage: reviewImageUrl || parsed.reviewImage || "",
     reviewSpecs: parsed.reviewSpecs && typeof parsed.reviewSpecs === "object" ? parsed.reviewSpecs : {},
+    heroImage: heroImageUrl,
+    sectionImages: fetchedImages,
+    researchItems: topItems.map(item => ({
+      title: item.title,
+      url: item.url,
+      source: item.source,
+      summary: item.summary,
+      topics: item.topics,
+      publishedAt: item.publishedAt,
+    })),
   };
 }

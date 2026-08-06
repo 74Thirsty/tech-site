@@ -73,7 +73,7 @@ type ResearchData = {
   stats: { totalArticles: number; totalGroups: number; totalAnalyses: number; sourcesBreakdown: Record<string, number>; keywordsBreakdown: Record<string, number> };
 };
 
-type Tab = "queue" | "articles" | "newsletters" | "subscribers" | "research" | "seo" | "system";
+type Tab = "queue" | "articles" | "newsletters" | "subscribers" | "research" | "seo" | "affiliate" | "system";
 
 export default function ControlCenter() {
   return (
@@ -104,6 +104,9 @@ function ControlCenterInner() {
   const [researchLoading, setResearchLoading] = useState(false);
   const [seoRankings, setSeoRankings] = useState<any[]>([]);
   const [seoLoading, setSeoLoading] = useState(false);
+  const [affiliateData, setAffiliateData] = useState<any>(null);
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [affiliateSubTab, setAffiliateSubTab] = useState<"programs" | "products" | "analytics" | "insights">("programs");
 
   const refresh = async () => {
     try {
@@ -174,6 +177,19 @@ function ControlCenterInner() {
     }
   }, []);
 
+  const fetchAffiliate = useCallback(async () => {
+    setAffiliateLoading(true);
+    try {
+      const res = await fetch("/api/control/affiliate");
+      const data = await res.json();
+      setAffiliateData(data);
+    } catch {
+      setAffiliateData(null);
+    } finally {
+      setAffiliateLoading(false);
+    }
+  }, []);
+
   const fetchSeo = useCallback(async () => {
     setSeoLoading(true);
     try {
@@ -194,7 +210,8 @@ function ControlCenterInner() {
     if (tab === "subscribers") fetchSubscribers();
     if (tab === "research") fetchResearch();
     if (tab === "seo") fetchSeo();
-  }, [tab, fetchArticles, fetchNewsletters, fetchSubscribers, fetchResearch, fetchSeo]);
+    if (tab === "affiliate") fetchAffiliate();
+  }, [tab, fetchArticles, fetchNewsletters, fetchSubscribers, fetchResearch, fetchSeo, fetchAffiliate]);
 
   const runAction = async (actionName: string, id?: string) => {
     setBusy(actionName);
@@ -369,6 +386,7 @@ function ControlCenterInner() {
             <TabButton label="SUBSCRIBERS" active={tab === "subscribers"} badge={activeSubscriberCount} onClick={function () { setTab("subscribers"); }} />
             <TabButton label="RESEARCH" active={tab === "research"} badge={research?.stats?.totalArticles || 0} onClick={function () { setTab("research"); }} />
             <TabButton label="SEO" active={tab === "seo"} onClick={function () { setTab("seo"); }} />
+            <TabButton label="AFFILIATE" active={tab === "affiliate"} onClick={function () { setTab("affiliate"); }} />
             <TabButton label="SYSTEM" active={tab === "system"} onClick={function () { setTab("system"); }} />
           </div>
 
@@ -441,6 +459,16 @@ function ControlCenterInner() {
 
           {tab === "seo" && (
             <SeoTab rankings={seoRankings} loading={seoLoading} onRefresh={fetchSeo} />
+          )}
+
+          {tab === "affiliate" && (
+            <AffiliateTab
+              data={affiliateData}
+              loading={affiliateLoading}
+              subTab={affiliateSubTab}
+              onSubTab={setAffiliateSubTab}
+              onRefresh={fetchAffiliate}
+            />
           )}
 
           {tab === "system" && (
@@ -680,6 +708,8 @@ function NewslettersTab({
   onAction: (id: string, status: string | "DELETE") => void;
   onClearAll: () => void;
 }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   return (
     <div className="control-tab-content">
       <div className="control-section">
@@ -705,28 +735,67 @@ function NewslettersTab({
           <div className="content-list">
             {newsletters.map(function (issue) {
               const badgeClass = issue?.status === "APPROVED" || issue?.status === "SENT" ? "published" : issue?.status === "ARCHIVED" ? "rejected" : "pending";
-              const content = issue?.content || {};
+              const content = (issue?.content || {}) as any;
+              const researchItems = content.researchItems || [];
+              const isExpanded = expandedId === issue?.id;
               return (
-                <div className="content-item" key={issue?.id || Math.random()}>
-                  <div className="content-item-main">
-                    <div className="content-item-title">{issue?.subject || "Untitled"}</div>
-                    <div className="content-item-meta">
-                      <span className={"status-badge " + badgeClass}>{issue?.status || "DRAFT"}</span>
-                      {content.topics && content.topics.length > 0 && <span>{content.topics.join(" / ")}</span>}
-                      {content.difficulty && <span>{content.difficulty}</span>}
-                      {content.estimatedReadTime && <span>{content.estimatedReadTime}</span>}
+                <div className="content-item" key={issue?.id || Math.random()} style={{ flexDirection: "column", alignItems: "stretch" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div className="content-item-main">
+                      <div className="content-item-title">{issue?.subject || "Untitled"}</div>
+                      <div className="content-item-meta">
+                        <span className={"status-badge " + badgeClass}>{issue?.status || "DRAFT"}</span>
+                        {content.topics && content.topics.length > 0 && <span>{content.topics.join(" / ")}</span>}
+                        {content.difficulty && <span>{content.difficulty}</span>}
+                        {content.estimatedReadTime && <span>{content.estimatedReadTime}</span>}
+                        {researchItems.length > 0 && (
+                          <button
+                            className="button button-outline button-sm"
+                            style={{ marginLeft: 8, padding: "2px 8px", fontSize: 10 }}
+                            onClick={() => setExpandedId(isExpanded ? null : (issue?.id || null))}
+                          >
+                            {isExpanded ? "HIDE RESEARCH" : `RESEARCH (${researchItems.length})`}
+                          </button>
+                        )}
+                      </div>
+                      {content.subtitle && <div className="content-item-excerpt">{content.subtitle}</div>}
                     </div>
-                    {content.subtitle && <div className="content-item-excerpt">{content.subtitle}</div>}
+                    <div className="content-item-actions">
+                      {issue?.status !== "APPROVED" && issue?.status !== "SENT" && (
+                        <button className="button button-primary button-sm" disabled={Boolean(busy)} onClick={function () { onAction(issue.id, "APPROVED"); }}>APPROVE</button>
+                      )}
+                      {issue?.status !== "SENT" && (
+                        <button className="button button-outline button-sm" disabled={Boolean(busy)} onClick={function () { onAction(issue.id, "SENT"); }}>MARK SENT</button>
+                      )}
+                      <button className="button button-danger button-sm" disabled={Boolean(busy)} onClick={function () { onAction(issue.id, "DELETE"); }}>DELETE</button>
+                    </div>
                   </div>
-                  <div className="content-item-actions">
-                    {issue?.status !== "APPROVED" && issue?.status !== "SENT" && (
-                      <button className="button button-primary button-sm" disabled={Boolean(busy)} onClick={function () { onAction(issue.id, "APPROVED"); }}>APPROVE</button>
-                    )}
-                    {issue?.status !== "SENT" && (
-                      <button className="button button-outline button-sm" disabled={Boolean(busy)} onClick={function () { onAction(issue.id, "SENT"); }}>MARK SENT</button>
-                    )}
-                    <button className="button button-danger button-sm" disabled={Boolean(busy)} onClick={function () { onAction(issue.id, "DELETE"); }}>DELETE</button>
-                  </div>
+                  {isExpanded && researchItems.length > 0 && (
+                    <div style={{ marginTop: 12, padding: "12px 0", borderTop: "1px solid var(--line)" }}>
+                      <div className="card-kicker" style={{ marginBottom: 8 }}>RESEARCH SOURCES USED FOR THIS GUIDE</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {researchItems.map((item: any, i: number) => (
+                          <div key={i} style={{ display: "flex", gap: 12, padding: "8px 12px", background: "#151512", borderLeft: "3px solid var(--acid)", fontSize: 11 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ marginBottom: 4 }}>
+                                <a href={item.url} target="_blank" rel="noopener" style={{ color: "var(--acid)", textDecoration: "none", fontWeight: 500 }}>
+                                  {item.title}
+                                </a>
+                              </div>
+                              <div style={{ color: "var(--muted)", lineHeight: 1.4 }}>{item.summary}</div>
+                              <div style={{ display: "flex", gap: 8, marginTop: 4, fontFamily: "var(--font-mono)", fontSize: 9 }}>
+                                <span className="status-badge published">{item.source}</span>
+                                {item.topics?.map((t: string, j: number) => (
+                                  <span key={j} style={{ color: "var(--orange)" }}>{t}</span>
+                                ))}
+                                {item.publishedAt && <span style={{ color: "var(--muted)" }}>{new Date(item.publishedAt).toLocaleDateString()}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -995,65 +1064,133 @@ function SystemTab({ state }: { state: { articleGenerations: ArticleGen[]; timel
 }
 
 function ResearchTab({ data, loading, onRefresh }: { data: ResearchData | null; loading: boolean; onRefresh: () => void }) {
+  const [subTab, setSubTab] = useState<"articles" | "groups" | "analyses" | "sources">("articles");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [keywordFilter, setKeywordFilter] = useState("");
+  const [importanceFilter, setImportanceFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
   if (loading && !data) {
     return <div className="control-tab-content"><p className="empty-state">Loading research data...</p></div>;
   }
-
   if (!data) {
     return <div className="control-tab-content"><p className="empty-state">Failed to load research data.</p></div>;
   }
 
   const stats = data.stats;
-  const topSources = Object.entries(stats.sourcesBreakdown).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  const topKeywords = Object.entries(stats.keywordsBreakdown).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const topSources = Object.entries(stats.sourcesBreakdown).sort((a, b) => b[1] - a[1]);
+  const topKeywords = Object.entries(stats.keywordsBreakdown).sort((a, b) => b[1] - a[1]);
+  const maxSourceCount = topSources.length > 0 ? topSources[0][1] : 1;
+
+  const filteredArticles = data.articles.filter(a => {
+    if (sourceFilter && a.source !== sourceFilter) return false;
+    if (keywordFilter && a.keyword !== keywordFilter) return false;
+    if (searchQuery && !a.title.toLowerCase().includes(searchQuery.toLowerCase()) && !a.summary.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  const filteredGroups = data.groups.filter(g => {
+    if (importanceFilter && g.importance !== importanceFilter) return false;
+    if (keywordFilter && g.keyword !== keywordFilter) return false;
+    if (searchQuery && !g.topic.toLowerCase().includes(searchQuery.toLowerCase()) && !g.summary.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  const filteredAnalyses = data.analyses.filter(a => {
+    if (searchQuery && !a.what_happened?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  const sentimentColor = (s: number | undefined) => {
+    if (s == null) return "var(--muted)";
+    return s > 0.2 ? "var(--acid)" : s < -0.2 ? "#ff6b6b" : "var(--orange)";
+  };
+
+  const importanceBadge = (imp: string) => {
+    if (imp === "CRITICAL") return "rejected";
+    if (imp === "HIGH") return "pending";
+    return "published";
+  };
+
+  const subTabs = [
+    { key: "articles" as const, label: "ARTICLES", count: filteredArticles.length },
+    { key: "groups" as const, label: "GROUPS", count: filteredGroups.length },
+    { key: "analyses" as const, label: "ANALYSES", count: filteredAnalyses.length },
+    { key: "sources" as const, label: "SOURCES", count: topSources.length },
+  ];
 
   return (
     <div className="control-tab-content">
-      <div className="control-panels">
-        <div className="control-section">
-          <div className="control-section-header">
-            <div className="card-kicker">RESEARCH STATS</div>
-            <button className="button button-outline button-sm" disabled={loading} onClick={onRefresh}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-          <div className="metric-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-            <Metric label="ARTICLES" value={String(stats.totalArticles)} detail="Raw research articles" />
-            <Metric label="GROUPS" value={String(stats.totalGroups)} detail="Deduplicated topics" />
-            <Metric label="ANALYSES" value={String(stats.totalAnalyses)} detail="AI-analyzed groups" />
-          </div>
-          {topSources.length > 0 && (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>TOP SOURCES</div>
-              {topSources.map(([source, count]) => (
-                <div key={source} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11, borderBottom: "1px solid var(--line)" }}>
-                  <span>{source}</span>
-                  <span style={{ color: "var(--acid)" }}>{count}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {topKeywords.length > 0 && (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>TOP KEYWORDS</div>
-              {topKeywords.map(([kw, count]) => (
-                <div key={kw} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 11, borderBottom: "1px solid var(--line)" }}>
-                  <span>{kw}</span>
-                  <span style={{ color: "var(--orange)" }}>{count}</span>
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="control-section">
+        <div className="control-section-header">
+          <div className="card-kicker">INTELLIGENCE PIPELINE</div>
+          <button className="button button-outline button-sm" disabled={loading} onClick={onRefresh}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
 
-        <div className="control-section">
-          <div className="card-kicker">RECENT RESEARCH ARTICLES</div>
-          {data.articles.length === 0 ? (
-            <p className="empty-state">No research articles yet. Run the research pipeline.</p>
+        <div className="metric-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+          <Metric label="ARTICLES" value={String(stats.totalArticles)} detail="Raw signals" accent />
+          <Metric label="GROUPS" value={String(stats.totalGroups)} detail="Deduplicated topics" />
+          <Metric label="ANALYSES" value={String(stats.totalAnalyses)} detail="AI-analyzed" />
+          <Metric label="SOURCES" value={String(topSources.length)} detail="Active feeds" />
+        </div>
+
+        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--line)", marginTop: 24 }}>
+          {subTabs.map(st => (
+            <button key={st.key} className="control-tab" style={{ borderBottom: subTab === st.key ? "2px solid var(--acid)" : undefined, color: subTab === st.key ? "var(--acid)" : undefined }} onClick={() => setSubTab(st.key)}>
+              {st.label}{st.count > 0 && <span className="tab-badge" style={{ marginLeft: 6 }}>{st.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+          <input className="control-input" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ maxWidth: 250 }} />
+          {subTab === "articles" && (
+            <>
+              <select className="control-input" style={{ maxWidth: 160 }} value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
+                <option value="">All sources</option>
+                {topSources.map(([s]) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select className="control-input" style={{ maxWidth: 160 }} value={keywordFilter} onChange={e => setKeywordFilter(e.target.value)}>
+                <option value="">All keywords</option>
+                {topKeywords.map(([k]) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </>
+          )}
+          {subTab === "groups" && (
+            <>
+              <select className="control-input" style={{ maxWidth: 160 }} value={importanceFilter} onChange={e => setImportanceFilter(e.target.value)}>
+                <option value="">All importance</option>
+                <option value="CRITICAL">CRITICAL</option>
+                <option value="HIGH">HIGH</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="LOW">LOW</option>
+              </select>
+              <select className="control-input" style={{ maxWidth: 160 }} value={keywordFilter} onChange={e => setKeywordFilter(e.target.value)}>
+                <option value="">All keywords</option>
+                {topKeywords.map(([k]) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </>
+          )}
+          {(sourceFilter || keywordFilter || importanceFilter || searchQuery) && (
+            <button className="button button-outline button-sm" onClick={() => { setSourceFilter(""); setKeywordFilter(""); setImportanceFilter(""); setSearchQuery(""); }}>Clear</button>
+          )}
+        </div>
+      </div>
+
+      {subTab === "articles" && (
+        <div className="control-section" style={{ marginTop: 16 }}>
+          {filteredArticles.length === 0 ? (
+            <p className="empty-state">No articles match your filters.</p>
           ) : (
-            <div className="content-list" style={{ maxHeight: 500, overflow: "auto" }}>
-              {data.articles.slice(0, 30).map((article) => (
-                <div className="content-item" key={article.id}>
+            <div className="content-list">
+              {filteredArticles.slice(0, 50).map((article) => (
+                <div className="content-item" key={article.id} style={{ alignItems: "flex-start" }}>
+                  <div style={{ minWidth: 50, textAlign: "center", paddingTop: 4 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: sentimentColor(article.sentiment), margin: "0 auto 4px" }} />
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--muted)" }}>{article.sentiment != null ? article.sentiment.toFixed(1) : "—"}</span>
+                  </div>
                   <div className="content-item-main">
                     <div className="content-item-title">
                       <a href={article.url} target="_blank" rel="noopener" style={{ color: "var(--acid)", textDecoration: "none" }}>
@@ -1062,74 +1199,126 @@ function ResearchTab({ data, loading, onRefresh }: { data: ResearchData | null; 
                     </div>
                     <div className="content-item-meta">
                       <span className="status-badge published">{article.source}</span>
+                      <span style={{ color: "var(--orange)" }}>{article.keyword}</span>
                       <span>{article.publisher}</span>
-                      <span>{article.keyword}</span>
-                      {article.sentiment != null && <span style={{ color: article.sentiment > 0 ? "var(--acid)" : "#ff6b6b" }}>sentiment: {article.sentiment.toFixed(2)}</span>}
                     </div>
                     <div className="content-item-excerpt">{article.summary}</div>
+                  </div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                    {article.published_at ? new Date(article.published_at).toLocaleDateString() : ""}
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {data.groups.length > 0 && (
-        <div className="control-section" style={{ marginTop: 20 }}>
-          <div className="card-kicker">RESEARCH GROUPS (DEDUPLICATED TOPICS)</div>
-          <div className="content-list">
-            {data.groups.map((group) => (
-              <div className="content-item" key={group.id}>
-                <div className="content-item-main">
-                  <div className="content-item-title">{group.topic}</div>
-                  <div className="content-item-meta">
-                    <span className={"status-badge " + (group.importance === "CRITICAL" ? "rejected" : group.importance === "HIGH" ? "pending" : "published")}>
-                      {group.importance}
-                    </span>
-                    <span>{group.source_count} sources</span>
-                    <span>{group.keyword}</span>
-                    <span>freshness: {group.freshness_score.toFixed(2)}</span>
+      {subTab === "groups" && (
+        <div className="control-section" style={{ marginTop: 16 }}>
+          {filteredGroups.length === 0 ? (
+            <p className="empty-state">No groups match your filters.</p>
+          ) : (
+            <div className="content-list">
+              {filteredGroups.map((group) => (
+                <div className="content-item" key={group.id} style={{ alignItems: "flex-start", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div className="content-item-main">
+                      <div className="content-item-title">{group.topic}</div>
+                      <div className="content-item-meta">
+                        <span className={"status-badge " + importanceBadge(group.importance)}>{group.importance}</span>
+                        <span style={{ color: "var(--orange)" }}>{group.keyword}</span>
+                        <span>{group.source_count} sources</span>
+                        <span style={{ color: group.freshness_score > 0.7 ? "var(--acid)" : "var(--muted)" }}>freshness {group.freshness_score.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <div style={{ width: 60, height: 6, background: "var(--line)", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: `${group.freshness_score * 100}%`, height: "100%", background: group.freshness_score > 0.7 ? "var(--acid)" : "var(--orange)", borderRadius: 3 }} />
+                      </div>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>{group.source_count}</span>
+                    </div>
                   </div>
                   <div className="content-item-excerpt">{group.summary}</div>
                   {group.key_facts.length > 0 && (
-                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)" }}>
-                      <strong>Key facts:</strong> {group.key_facts.slice(0, 3).join(" | ")}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {group.key_facts.slice(0, 4).map((fact, i) => (
+                        <span key={i} style={{ font: "9px 'DM Mono'", color: "var(--paper)", background: "var(--ink)", border: "1px solid var(--line)", padding: "3px 8px", borderRadius: 2 }}>{fact}</span>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {data.analyses.length > 0 && (
-        <div className="control-section" style={{ marginTop: 20 }}>
-          <div className="card-kicker">AI ANALYSES</div>
-          <div className="content-list">
-            {data.analyses.map((analysis) => (
-              <div className="content-item" key={analysis.id}>
-                <div className="content-item-main">
-                  <div className="content-item-meta">
+      {subTab === "analyses" && (
+        <div className="control-section" style={{ marginTop: 16 }}>
+          {filteredAnalyses.length === 0 ? (
+            <p className="empty-state">No analyses yet.</p>
+          ) : (
+            <div className="content-list">
+              {filteredAnalyses.map((analysis) => (
+                <div className="content-item" key={analysis.id} style={{ alignItems: "flex-start", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {analysis.is_breaking && <span className="status-badge rejected">BREAKING</span>}
                     {analysis.is_important && <span className="status-badge pending">IMPORTANT</span>}
                   </div>
-                  <div className="content-item-excerpt">{analysis.what_happened}</div>
+                  <div className="content-item-excerpt" style={{ fontSize: 13, lineHeight: 1.5 }}>{analysis.what_happened}</div>
                   {analysis.technical_significance && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: "var(--muted)" }}>
-                      <strong>Technical significance:</strong> {analysis.technical_significance}
+                    <div style={{ fontSize: 11, color: "var(--muted)", padding: "8px 12px", background: "#151512", borderLeft: "3px solid var(--line)" }}>
+                      <strong style={{ color: "var(--paper)" }}>TECHNICAL:</strong> {analysis.technical_significance}
                     </div>
                   )}
                   {analysis.why_it_matters && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: "var(--acid)" }}>
-                      <strong>Why it matters:</strong> {analysis.why_it_matters}
+                    <div style={{ fontSize: 11, color: "var(--acid)", padding: "8px 12px", background: "#151512", borderLeft: "3px solid var(--acid)" }}>
+                      <strong>WHY IT MATTERS:</strong> {analysis.why_it_matters}
+                    </div>
+                  )}
+                  {analysis.key_entities && analysis.key_entities.length > 0 && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {analysis.key_entities.map((e, i) => (
+                        <span key={i} style={{ font: "9px 'DM Mono'", color: "var(--orange)", border: "1px solid var(--orange)", padding: "2px 6px", borderRadius: 2 }}>{e}</span>
+                      ))}
                     </div>
                   )}
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === "sources" && (
+        <div className="control-section" style={{ marginTop: 16 }}>
+          <div className="content-list">
+            {topSources.map(([source, count]) => (
+              <div key={source} style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--paper)", minWidth: 140 }}>{source}</span>
+                <div style={{ flex: 1, height: 8, background: "var(--line)", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ width: `${(count / maxSourceCount) * 100}%`, height: "100%", background: "var(--acid)", borderRadius: 4, transition: "width .3s" }} />
+                </div>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--acid)", minWidth: 40, textAlign: "right" }}>{count}</span>
               </div>
             ))}
           </div>
+          {topKeywords.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div className="card-kicker" style={{ marginBottom: 12 }}>KEYWORD CLOUD</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {topKeywords.map(([kw, count]) => {
+                  const size = Math.max(10, Math.min(18, 10 + (count / topKeywords[0][1]) * 8));
+                  return (
+                    <span key={kw} style={{ fontFamily: "var(--font-mono)", fontSize: size, color: count > topKeywords[0][1] * 0.6 ? "var(--acid)" : "var(--muted)", cursor: "pointer", padding: "2px 4px" }} onClick={() => { setKeywordFilter(kw); setSubTab("articles"); }}>
+                      {kw}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1218,6 +1407,227 @@ function SeoTab({ rankings, loading, onRefresh }: { rankings: any[]; loading: bo
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AffiliateTab({ data, loading, subTab, onSubTab, onRefresh }: {
+  data: any;
+  loading: boolean;
+  subTab: "programs" | "products" | "analytics" | "insights";
+  onSubTab: (t: "programs" | "products" | "analytics" | "insights") => void;
+  onRefresh: () => void;
+}) {
+  const [busy, setBusy] = useState("");
+  const [form, setForm] = useState<Record<string, any>>({});
+
+  const programs = data?.programs ?? [];
+  const products = data?.products ?? [];
+  const stats = data?.stats ?? null;
+  const insights = data?.insights ?? [];
+
+  const api = async (action: string, body: any = {}) => {
+    setBusy(action);
+    try {
+      await fetch("/api/control/affiliate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...body }),
+      });
+      onRefresh();
+    } finally { setBusy(""); }
+  };
+
+  const runInsights = async () => {
+    setBusy("insights");
+    try {
+      await fetch("/api/control/affiliate/insights", { method: "POST" });
+      onRefresh();
+    } finally { setBusy(""); }
+  };
+
+  const subTabs = [
+    { key: "programs" as const, label: "PROGRAMS", count: programs.length },
+    { key: "products" as const, label: "PRODUCTS", count: products.length },
+    { key: "analytics" as const, label: "ANALYTICS", count: stats?.totalClicks || 0 },
+    { key: "insights" as const, label: "AI INSIGHTS", count: insights.length },
+  ];
+
+  return (
+    <div className="control-tab-content">
+      <div className="control-section">
+        <div className="control-section-header">
+          <div className="card-kicker">AFFILIATE INTELLIGENCE</div>
+          <button className="button button-outline button-sm" disabled={loading} onClick={onRefresh}>
+            {loading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--line)", marginBottom: 20 }}>
+          {subTabs.map(st => (
+            <button key={st.key} className="control-tab" style={{ borderBottom: subTab === st.key ? "2px solid var(--acid)" : undefined, color: subTab === st.key ? "var(--acid)" : undefined }} onClick={() => onSubTab(st.key)}>
+              {st.label}{st.count > 0 && <span className="tab-badge" style={{ marginLeft: 6 }}>{st.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {subTab === "programs" && (
+          <div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <input className="control-input" placeholder="Program name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} style={{ flex: 1 }} />
+              <input className="control-input" placeholder="Network (e.g. Amazon, ShareASale)" value={form.network || ""} onChange={e => setForm({ ...form, network: e.target.value })} style={{ flex: 1 }} />
+              <input className="control-input" placeholder="Affiliate ID" value={form.affiliate_id || ""} onChange={e => setForm({ ...form, affiliate_id: e.target.value })} style={{ flex: 1 }} />
+              <button className="button button-primary button-sm" disabled={busy === "add-program" || !form.name} onClick={() => { api("add-program", { program: { ...form, commission_type: "percentage", commission_rate: "5%", cookie_days: 30, enabled: true, base_url: "", } }); setForm({}); }}>
+                {busy === "add-program" ? "Adding..." : "Add"}
+              </button>
+            </div>
+            {programs.length === 0 ? (
+              <p className="empty-state">No affiliate programs configured. Add one above.</p>
+            ) : (
+              <div className="content-list">
+                {programs.map((p: any) => (
+                  <div className="content-item" key={p.id}>
+                    <div className="content-item-main">
+                      <div className="content-item-title">{p.name}</div>
+                      <div className="content-item-meta">
+                        <span className={"status-badge " + (p.enabled ? "published" : "rejected")}>{p.enabled ? "ACTIVE" : "DISABLED"}</span>
+                        <span>{p.network}</span>
+                        <span>ID: {p.affiliate_id}</span>
+                        <span>{p.commission_rate}</span>
+                        <span>{p.cookie_days}d cookie</span>
+                      </div>
+                    </div>
+                    <div className="content-item-actions">
+                      <button className="button button-outline button-sm" disabled={!!busy} onClick={() => api("update-program", { id: p.id, updates: { enabled: !p.enabled } })}>
+                        {p.enabled ? "Disable" : "Enable"}
+                      </button>
+                      <button className="button button-danger button-sm" disabled={!!busy} onClick={() => api("delete-program", { id: p.id })}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {subTab === "products" && (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+              <input className="control-input" placeholder="Product name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+              <input className="control-input" placeholder="Category" value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })} />
+              <input className="control-input" placeholder="Vendor" value={form.vendor || ""} onChange={e => setForm({ ...form, vendor: e.target.value })} />
+              <input className="control-input" placeholder="Price" value={form.price || ""} onChange={e => setForm({ ...form, price: e.target.value })} />
+              <input className="control-input" placeholder="Affiliate URL" value={form.affiliate_url || ""} onChange={e => setForm({ ...form, affiliate_url: e.target.value })} style={{ gridColumn: "span 2" }} />
+              <input className="control-input" placeholder="Description" value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} style={{ gridColumn: "span 2" }} />
+              <input className="control-input" placeholder="Topics (comma separated)" value={form.topics || ""} onChange={e => setForm({ ...form, topics: e.target.value.split(",").map((s: string) => s.trim()) })} style={{ gridColumn: "span 2" }} />
+              <button className="button button-primary button-sm" disabled={busy === "add-product" || !form.name} onClick={() => { api("add-product", { product: { ...form, program_id: form.program_id || "", image_url: form.image_url || "", rating: 0, enabled: true } }); setForm({}); }}>
+                {busy === "add-product" ? "Adding..." : "Add Product"}
+              </button>
+            </div>
+            {products.length === 0 ? (
+              <p className="empty-state">No products configured. Add one above.</p>
+            ) : (
+              <div className="content-list">
+                {products.map((p: any) => (
+                  <div className="content-item" key={p.id}>
+                    <div className="content-item-main">
+                      <div className="content-item-title">{p.name}</div>
+                      <div className="content-item-meta">
+                        <span className={"status-badge " + (p.enabled ? "published" : "rejected")}>{p.enabled ? "ACTIVE" : "OFF"}</span>
+                        <span>{p.category}</span>
+                        <span>{p.vendor}</span>
+                        {p.price && <span>{p.price}</span>}
+                      </div>
+                      {p.description && <div className="content-item-excerpt">{p.description}</div>}
+                      {p.topics?.length > 0 && <div style={{ fontSize: 10, color: "var(--acid)", marginTop: 4 }}>TOPICS: {p.topics.join(", ")}</div>}
+                    </div>
+                    <div className="content-item-actions">
+                      <button className="button button-outline button-sm" disabled={!!busy} onClick={() => api("update-product", { id: p.id, updates: { enabled: !p.enabled } })}>
+                        {p.enabled ? "Disable" : "Enable"}
+                      </button>
+                      <button className="button button-danger button-sm" disabled={!!busy} onClick={() => api("delete-product", { id: p.id })}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {subTab === "analytics" && (
+          <div>
+            {stats ? (
+              <>
+                <div className="metric-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+                  <Metric label="TOTAL CLICKS" value={String(stats.totalClicks)} detail="All time" />
+                  <Metric label="CONVERSIONS" value={String(stats.totalConversions)} detail="Tracked sales" />
+                  <Metric label="REVENUE" value={`$${stats.totalRevenue.toFixed(2)}`} detail="Gross sales" />
+                  <Metric label="COMMISSION" value={`$${stats.totalCommission.toFixed(2)}`} detail="Earned" />
+                </div>
+                {stats.topProducts.length > 0 && (
+                  <div style={{ marginTop: 20 }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>TOP PRODUCTS BY CLICKS</div>
+                    {stats.topProducts.map((tp: any) => {
+                      const prod = products.find((p: any) => p.id === tp.product_id);
+                      return (
+                        <div key={tp.product_id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 11, borderBottom: "1px solid var(--line)" }}>
+                          <span>{prod?.name || tp.product_id}</span>
+                          <span style={{ color: "var(--acid)" }}>{tp.clicks} clicks</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {stats.topArticles.length > 0 && (
+                  <div style={{ marginTop: 20 }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>TOP ARTICLES BY AFFILIATE CLICKS</div>
+                    {stats.topArticles.map((ta: any) => (
+                      <div key={ta.article_slug} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 11, borderBottom: "1px solid var(--line)" }}>
+                        <a href={`/vault/${ta.article_slug}`} target="_blank" rel="noopener" style={{ color: "var(--acid)", textDecoration: "none" }}>{ta.article_slug}</a>
+                        <span style={{ color: "var(--acid)" }}>{ta.clicks} clicks</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="empty-state">No analytics data yet. Clicks will appear here once tracking is active.</p>
+            )}
+          </div>
+        )}
+
+        {subTab === "insights" && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <button className="button button-primary button-sm" disabled={!!busy} onClick={runInsights}>
+                {busy === "insights" ? "Analyzing..." : "Run AI Analysis"}
+              </button>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", marginLeft: 12 }}>
+                Analyzes published articles against affiliate products
+              </span>
+            </div>
+            {insights.length === 0 ? (
+              <p className="empty-state">No insights yet. Run the AI analysis above.</p>
+            ) : (
+              <div className="content-list">
+                {insights.map((ins: any) => (
+                  <div className="content-item" key={ins.id}>
+                    <div className="content-item-main">
+                      <div className="content-item-title">{ins.title}</div>
+                      <div className="content-item-meta">
+                        <span className={"status-badge " + (ins.priority === "HIGH" ? "rejected" : ins.priority === "MEDIUM" ? "pending" : "published")}>{ins.priority}</span>
+                        <span>{ins.insight_type}</span>
+                        {ins.article_slug && <span>Article: {ins.article_slug}</span>}
+                      </div>
+                      <div className="content-item-excerpt">{ins.description}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

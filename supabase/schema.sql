@@ -18,6 +18,31 @@ create table if not exists public.job_runs (id uuid primary key default gen_rand
 create table if not exists public.agent_memory (id uuid primary key default gen_random_uuid(), kind text not null, memory_key text not null, value jsonb not null default '{}', confidence numeric not null default 0, source text not null, created_at timestamptz not null default now());
 create table if not exists public.content_revenue (id uuid primary key default gen_random_uuid(), slug text unique not null, views integer not null default 0, subscribers integer not null default 0, purchases integer not null default 0, revenue numeric not null default 0, updated_at timestamptz not null default now());
 
+-- Marketing subscriber profiles (full PII + metadata)
+create table if not exists public.subscriber_profiles (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  first_name text not null,
+  last_name text not null,
+  phone text,
+  source text not null default 'subscribe_page',
+  status text not null default 'active',
+  ip_address text,
+  user_agent text,
+  referer text,
+  city text,
+  region text,
+  country text,
+  latitude text,
+  longitude text,
+  timezone text,
+  org text,
+  subscribed_at timestamptz not null default now(),
+  updated_at timestamptz default now()
+);
+alter table public.subscriber_profiles enable row level security;
+create policy "Service role full access subscriber_profiles" on public.subscriber_profiles for all using (auth.role() = 'service_role');
+
 create table if not exists public.research_articles (id uuid primary key default gen_random_uuid(), slug text not null, title text not null, url text, source text not null, summary text, keywords text[] default '{}', importance text default 'LOW', published_at timestamptz, collected_at timestamptz default now());
 create table if not exists public.research_groups (id uuid primary key default gen_random_uuid(), topic text not null, keyword text not null, sources text[] default '{}', source_count integer default 0, importance text default 'LOW', summary text, key_facts text[] default '{}', freshness_score real default 0, average_sentiment real default 0, created_at timestamptz default now());
 create table if not exists public.research_analyses (id uuid primary key default gen_random_uuid(), group_id uuid references public.research_groups(id), what_happened text, is_breaking boolean default false, is_important boolean default false, source_disagreement boolean default false, technical_significance text, why_it_matters text, key_entities text[] default '{}', related_topics text[] default '{}', research_notes text, created_at timestamptz default now());

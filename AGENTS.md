@@ -1,5 +1,23 @@
 # AGENTS.md
 
+## CRITICAL RULES — VIOLATION = IMMEDIATE TERMINATION
+
+1. **NEVER change code that already works.** If the user says something was working, it was working. Do not "fix" it.
+2. **ALWAYS use the correct auth keys on the FIRST try.** Supabase REST API: use `<USE KEYRING>` for both `apikey` and `Authorization: Bearer` headers. No guessing. No fumbling.
+3. **NEVER make "improvements" to functional code** unless explicitly told to. The original `select=count` in `src/lib/affiliate.ts` works. Do not change it.
+4. **If you don't know something, say so immediately.** Don't run three wrong commands to figure it out.
+5. **Every new conversation starts fresh.** You have NO memory of previous conversations. AGENTS.md is your only memory. Keep it updated with critical lessons.
+6. **The user is always right about what was working.** If they say the site worked before, it worked. Period.
+<!-- 7. **Deploy with `vercel --prod --yes`.** Never use git commands. Git is permanently banned. -->
+8. **Supabase project ID: `gajuziafgxnjxpfhuxgs`.** Dashboard: `https://supabase.com/dashboard/project/gajuziafgxnjxpfhuxgs`
+9. **Vercel project: `arcade-site` under team `stratagem1`.** Domain: `stratagemconsulting.net`
+10. **Test before deploying.** Run `npx tsc --noEmit` and `npx next lint` before every deploy.
+11. **Local network at Salvation Army has WatchGuard firewall** that blocks all outbound traffic after hop 1. Site appears down from this network but is live on Vercel. Always test from cellular data or external network first before assuming site is down.
+12. **Supabase REST API auth:** Use `<USE KEYRING>` as both `apikey` header AND `Authorization: Bearer` header. The JWT token in .env.local does NOT work for REST API calls.
+<!-- 13. **Git is permanently banned.** No git commands of any kind. Ever. -->
+
+---
+
 ## Agent Specification: Senior Frontend Animation & Visual Effects Engineer
 
 ## Role

@@ -62,3 +62,147 @@ create policy "Users read own profile" on public.profiles for select using (auth
 create policy "Users update own profile" on public.profiles for update using (auth.uid() = id);
 create policy "Users read own achievements" on public.user_achievements for select using (auth.uid() = user_id);
 create policy "Anyone can record analytics" on public.analytics_events for insert with check (true);
+
+-- Visitor Intelligence System
+create table if not exists public.visitors (
+  id uuid primary key default gen_random_uuid(),
+  visitor_id text unique not null,
+  fingerprint text,
+  ip_address text,
+  isp text,
+  organization text,
+  asn text,
+  network text,
+  is_vpn boolean default false,
+  is_proxy boolean default false,
+  is_tor boolean default false,
+  country text,
+  country_code text,
+  region text,
+  city text,
+  postal_code text,
+  latitude numeric,
+  longitude numeric,
+  timezone text,
+  device_type text,
+  os text,
+  os_version text,
+  browser text,
+  browser_version text,
+  vendor text,
+  model text,
+  screen_width integer,
+  screen_height integer,
+  language text,
+  locale text,
+  referrer text,
+  referrer_domain text,
+  landing_page text,
+  utm_source text,
+  utm_medium text,
+  utm_campaign text,
+  first_seen timestamptz not null default now(),
+  last_seen timestamptz not null default now(),
+  visit_count integer not null default 1,
+  page_views integer not null default 0,
+  is_new boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.visitor_sessions (
+  id uuid primary key default gen_random_uuid(),
+  visitor_id text not null references public.visitors(visitor_id) on delete cascade,
+  session_id text unique not null,
+  ip_address text,
+  browser_raw text,
+  device_type text,
+  os text,
+  browser text,
+  country text,
+  city text,
+  referrer text,
+  landing_page text,
+  started_at timestamptz not null default now(),
+  last_active timestamptz not null default now(),
+  duration integer not null default 0,
+  page_views integer not null default 0,
+  events integer not null default 0,
+  ended boolean not null default false
+);
+
+create table if not exists public.visitor_page_views (
+  id uuid primary key default gen_random_uuid(),
+  visitor_id text not null references public.visitors(visitor_id) on delete cascade,
+  session_id text not null references public.visitor_sessions(session_id) on delete cascade,
+  path text not null,
+  title text,
+  article_slug text,
+  referrer text,
+  load_time integer,
+  scroll_depth integer,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.visitor_events (
+  id uuid primary key default gen_random_uuid(),
+  visitor_id text not null references public.visitors(visitor_id) on delete cascade,
+  session_id text not null references public.visitor_sessions(session_id) on delete cascade,
+  event_type text not null,
+  event_name text not null,
+  path text,
+  article_slug text,
+  metadata jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.ip_enrichments (
+  id uuid primary key default gen_random_uuid(),
+  ip_address text unique not null,
+  country text,
+  country_code text,
+  region text,
+  city text,
+  postal_code text,
+  latitude numeric,
+  longitude numeric,
+  timezone text,
+  isp text,
+  organization text,
+  asn text,
+  network text,
+  is_vpn boolean default false,
+  is_proxy boolean default false,
+  is_tor boolean default false,
+  enrichment_source text not null default 'ip-api',
+  enriched_at timestamptz not null default now()
+);
+
+-- Indexes for visitor intelligence
+create index if not exists idx_visitors_visitor_id on public.visitors(visitor_id);
+create index if not exists idx_visitors_ip on public.visitors(ip_address);
+create index if not exists idx_visitors_country on public.visitors(country_code);
+create index if not exists idx_visitors_last_seen on public.visitors(last_seen desc);
+create index if not exists idx_visitors_first_seen on public.visitors(first_seen desc);
+create index if not exists idx_visitor_sessions_visitor_id on public.visitor_sessions(visitor_id);
+create index if not exists idx_visitor_sessions_started on public.visitor_sessions(started_at desc);
+create index if not exists idx_visitor_page_views_visitor_id on public.visitor_page_views(visitor_id);
+create index if not exists idx_visitor_page_views_session_id on public.visitor_page_views(session_id);
+create index if not exists idx_visitor_page_views_created on public.visitor_page_views(created_at desc);
+create index if not exists idx_visitor_events_visitor_id on public.visitor_events(visitor_id);
+create index if not exists idx_visitor_events_session_id on public.visitor_events(session_id);
+create index if not exists idx_visitor_events_type on public.visitor_events(event_type);
+create index if not exists idx_visitor_events_created on public.visitor_events(created_at desc);
+create index if not exists idx_ip_enrichments_ip on public.ip_enrichments(ip_address);
+
+-- RLS for visitor intelligence (service role only)
+alter table public.visitors enable row level security;
+alter table public.visitor_sessions enable row level security;
+alter table public.visitor_page_views enable row level security;
+alter table public.visitor_events enable row level security;
+alter table public.ip_enrichments enable row level security;
+
+create policy "Service role full access visitors" on public.visitors for all using (auth.role() = 'service_role');
+create policy "Service role full access visitor_sessions" on public.visitor_sessions for all using (auth.role() = 'service_role');
+create policy "Service role full access visitor_page_views" on public.visitor_page_views for all using (auth.role() = 'service_role');
+create policy "Service role full access visitor_events" on public.visitor_events for all using (auth.role() = 'service_role');
+create policy "Service role full access ip_enrichments" on public.ip_enrichments for all using (auth.role() = 'service_role');

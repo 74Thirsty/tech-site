@@ -43,32 +43,28 @@ export async function getVisitors(filters: VisitorTableFilters = {}): Promise<Vi
   const sortOrder = filters.sort_order ?? "desc";
   params.push(`&order=${sortBy}.${sortOrder}`);
 
-  // Pagination
-  params.push(`&limit=${limit}&offset=${offset}`);
+  // Pagination — fetch limit+1 to detect if more pages exist
+  params.push(`&limit=${limit + 1}&offset=${offset}`);
 
   const queryString = params.join("");
-  const countParams = conditions.length > 0 ? `?${conditions.join("&")}` : "";
 
   try {
-    // Get total count
-    const countResult = await supabaseRequest<Array<{ count: number }>>(
-      `visitors${countParams}&select=count`,
-      { method: "GET" }
-    );
-    const total = countResult?.[0]?.count ?? 0;
-
     // Get visitors
     const visitors = await supabaseRequest<Visitor[]>(
       `visitors?select=*${queryString}`,
       { method: "GET" }
     );
 
+    const results = visitors ?? [];
+    const hasMore = results.length > limit;
+    const total = hasMore ? page * limit + 1 : offset + results.length;
+
     return {
-      visitors: visitors ?? [],
+      visitors: hasMore ? results.slice(0, limit) : results,
       total,
       page,
       limit,
-      pages: Math.ceil(total / limit),
+      pages: hasMore ? page + 1 : page,
     };
   } catch (error) {
     console.error(`Visitor query failed: ${String(error)}`);

@@ -198,11 +198,12 @@ async function getOrCreateVisitor(
       headers: { Prefer: "return=representation" },
     });
 
-    // Enrich IP asynchronously (don't block)
+    // Enrich IP synchronously — serverless functions terminate before .then() completes
     if (clientInfo.ip && clientInfo.ip !== "unknown") {
-      enrichIp(clientInfo.ip).then(enrichment => {
+      try {
+        const enrichment = await enrichIp(clientInfo.ip);
         if (enrichment) {
-          supabaseRequest(`visitors?visitor_id=eq.${encodeURIComponent(visitorId)}`, {
+          await supabaseRequest(`visitors?visitor_id=eq.${encodeURIComponent(visitorId)}`, {
             method: "PATCH",
             body: JSON.stringify({
               country: enrichment.country,
@@ -221,9 +222,11 @@ async function getOrCreateVisitor(
               is_proxy: enrichment.is_proxy,
               is_tor: enrichment.is_tor,
             }),
-          }).catch(() => {});
+          });
         }
-      }).catch(() => {});
+      } catch {
+        // Enrichment failure is non-critical
+      }
     }
 
     return results?.[0] ?? null;

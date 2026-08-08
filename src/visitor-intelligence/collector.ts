@@ -321,10 +321,9 @@ export async function collectVisitorData(
   const visitorId = generateVisitorId(clientInfo.ip, clientInfo.userAgent);
   const sessionId = options.sessionId ?? null;
 
-  const [visitor, session] = await Promise.all([
-    getOrCreateVisitor(visitorId, request, clientInfo),
-    getOrCreateSession(visitorId, sessionId, request, clientInfo),
-  ]);
+  // Must run sequentially — session FK references visitors
+  const visitor = await getOrCreateVisitor(visitorId, request, clientInfo);
+  const session = await getOrCreateSession(visitorId, sessionId, request, clientInfo);
 
   return {
     visitor,

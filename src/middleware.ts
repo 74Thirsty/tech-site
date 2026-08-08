@@ -11,6 +11,7 @@ const PROTECTED_APIS = [
   "/api/images/generate",
   "/api/seo",
   "/api/jobs/generate-articles",
+  "/api/jobs/refresh-products",
 ];
 
 export function middleware(request: NextRequest) {
@@ -54,5 +55,6 @@ export const config = {
     "/api/images/generate/:path*",
     "/api/seo/:path*",
     "/api/jobs/generate-articles/:path*",
+    "/api/jobs/refresh-products/:path*",
   ],
 };

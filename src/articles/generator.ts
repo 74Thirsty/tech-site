@@ -211,6 +211,7 @@ Return ONLY valid JSON, no markdown fences:
   "move": "One concrete next step the reader should take immediately"
 }
 
+${plan.affiliateContext?.editorialGuidance ? `\n${plan.affiliateContext.editorialGuidance}\n` : ""}
 CRITICAL RULES:
 1. The "intro" field MUST be exactly ${wordCount} words (between ${wordCount - tolerance} and ${wordCount + tolerance}). Count carefully.
 2. Write in a direct, authoritative, technical voice. No fluff, no filler.

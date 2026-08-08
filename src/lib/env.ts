@@ -18,6 +18,13 @@ export const env = {
   newsdataApiKey: process.env.NEWSDATA_API_KEY,
   newsapiKey: process.env.NEWS_API_KEY,
 
+  // Product data adapters
+  productSourceApiKey: process.env.PRODUCT_SOURCE_API_KEY,
+  amazonClientId: process.env.AMAZON_CLIENT_ID,
+  amazonClientSecret: process.env.AMAZON_CLIENT_SECRET,
+  amazonPartnerTag: process.env.AMAZON_PARTNER_TAG,
+  amazonMarketplace: process.env.AMAZON_MARKETPLACE ?? "www.amazon.com",
+
   // Research pipeline config
   researchMaxAgeDays: parseInt(process.env.RESEARCH_MAX_AGE_DAYS ?? "7", 10),
   researchMaxArticlesPerKeyword: parseInt(process.env.RESEARCH_MAX_ARTICLES_PER_KEYWORD ?? "20", 10),

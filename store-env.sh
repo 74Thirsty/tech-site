@@ -1,34 +1,24 @@
 #!/bin/bash
-# Store CRYSTAL // FORGE secrets into KDE Wallet
+# Store secrets into KDE Wallet
 # Usage: ./store-env.sh
+#   Interactive — type key name, then paste value. Empty key name to quit.
 
 WALLET="kdewallet"
 FOLDER="arcade-site"
 
-store_key() {
-  local key="$1"
-  local prompt="$2"
-  read -rsp "$prompt: " value
+echo "Storing secrets into kwallet..."
+echo "(Type key name, paste value, empty key to quit)"
+echo
+
+while true; do
+  read -rp "Key name: " key
+  [ -z "$key" ] && break
+  read -rsp "Value: " value
   echo
   if [ -n "$value" ]; then
     echo "$value" | kwallet-query "$WALLET" -f "$FOLDER" -w "$key" 2>/dev/null
     echo "  stored $key"
   fi
-}
+done
 
-echo "Storing CRYSTAL // FORGE secrets into kwallet..."
-store_key GEMINI_API_KEY "Gemini API Key"
-store_key PEXELS_API_KEY "Pexels API Key"
-store_key NEXT_PUBLIC_SITE_URL "Site URL (https://arcade-site-gamma.vercel.app)"
-store_key NEXT_PUBLIC_SUPABASE_URL "Supabase URL"
-store_key NEXT_PUBLIC_SUPABASE_ANON_KEY "Supabase Anon Key"
-store_key SUPABASE_SERVICE_ROLE_KEY "Supabase Service Role Key"
-store_key RESEND_API_KEY "Resend API Key"
-store_key STRIPE_SECRET_KEY "Stripe Secret Key"
-store_key STRIPE_WEBHOOK_SECRET "Stripe Webhook Secret"
-store_key CRON_SECRET "Cron Secret"
-store_key DISCORD_WEBHOOK_URL "Discord Webhook URL"
-store_key NEWS_API_KEY "NewsAPI.org API Key"
-store_key NEWSDATA_API_KEY "NewsData.io API Key"
-store_key OPENROUTER_API_KEY "OpenRouter API Key"
 echo "Done. Run 'source load-env.sh' to load them."

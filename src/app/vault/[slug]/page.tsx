@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 import { getChartForArticle } from "@/lib/charts";
 import { getArticleImages } from "@/lib/pexels";
 import { getGeneratedArticle } from "@/lib/generated-articles";
+import { isAnyProductSourceConfigured, getProductsForArticle } from "@/lib/products";
 import MermaidDiagram from "@/components/MermaidDiagram";
 import ArticleImage from "@/components/ArticleImage";
 import ArticleFooter from "@/components/ArticleFooter";
 import BookAd from "@/components/BookAd";
+import ProductSidebar from "@/components/ProductSidebar";
+import ProductBottom from "@/components/ProductBottom";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +53,33 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const chart = getChartForArticle(article.category, slug);
   const images = await getArticleImages(slug, article.category, article.tags, article.title);
 
+  // Fetch affiliate products for this article
+  let affiliateProducts: Array<{
+    id: string;
+    title: string;
+    price?: string;
+    imageUrl?: string;
+    detailPageUrl: string;
+    relevanceScore: number;
+    reason: string;
+  }> = [];
+  if (isAnyProductSourceConfigured()) {
+    try {
+      const raw = await getProductsForArticle(slug, article.tags, article.category);
+      affiliateProducts = raw.map((p, i) => ({
+        id: p.id,
+        title: p.title,
+        price: p.price?.display,
+        imageUrl: p.imageUrl,
+        detailPageUrl: p.detailPageUrl,
+        relevanceScore: Math.max(0.7 - i * 0.1, 0.4),
+        reason: `Relevant to ${article.tags[0] ?? article.category}`,
+      }));
+    } catch {
+      // Product fetch failure never blocks article rendering
+    }
+  }
+
   const sections = article.body ? splitBodyAtPositions(article.body) : null;
 
   return (
@@ -88,9 +118,17 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
             <div className="article-content" dangerouslySetInnerHTML={{ __html: sections.second }} />
 
-            <BookAd />
+            {affiliateProducts.length > 0 ? (
+              <ProductSidebar products={affiliateProducts.slice(0, 1)} articleSlug={slug} />
+            ) : (
+              <BookAd />
+            )}
 
             <div className="article-content" dangerouslySetInnerHTML={{ __html: sections.third }} />
+
+            {affiliateProducts.length > 1 && (
+              <ProductBottom products={affiliateProducts.slice(1, 3)} articleSlug={slug} />
+            )}
           </>
         ) : (
           <div className="article-body">

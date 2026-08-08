@@ -5,6 +5,7 @@ import {
   getAffiliateProducts, createAffiliateProduct, updateAffiliateProduct, deleteAffiliateProduct,
   getAffiliateStats, getAffiliateInsights, createAffiliateInsight,
 } from "@/lib/affiliate";
+import { findOrFetchProducts } from "@/lib/products";
 
 export const maxDuration = 60;
 
@@ -65,6 +66,22 @@ export async function POST(request: Request) {
   if (body.action === "add-insight") {
     const ok = await createAffiliateInsight(body.insight);
     return NextResponse.json({ ok });
+  }
+
+  if (body.action === "sync-amazon") {
+    const { keywords, topic } = body;
+    if (!keywords || !topic) {
+      return NextResponse.json({ error: "Missing keywords or topic" }, { status: 400 });
+    }
+    const products = await findOrFetchProducts(
+      Array.isArray(keywords) ? keywords : [keywords],
+      topic
+    );
+    return NextResponse.json({
+      ok: true,
+      fetched: products.length,
+      products: products.map(p => ({ id: p.id, title: p.title, price: p.price?.display })),
+    });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

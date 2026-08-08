@@ -186,6 +186,39 @@ export async function runResearchPipeline(
     return { success: false, articles: [], research: await getResearchStats(), errors };
   }
 
+  // ─── Step 5.5: Product Intelligence ─────────────────────────────────────
+  console.log("\n[5.5/6] Detecting product opportunities...");
+  let productOpportunities = 0;
+  for (const plan of plans) {
+    try {
+      const { detectOpportunities } = await import("@/affiliate/intelligence/opportunity-detector");
+      const opportunity = await detectOpportunities(plan);
+      if (opportunity) {
+        plan.affiliateContext = {
+          entities: opportunity.entities.map(e => ({
+            term: e.term,
+            intent: e.intent,
+            productType: e.productType,
+          })),
+          products: opportunity.products.map(p => ({
+            id: p.id,
+            title: p.title,
+            price: p.price?.display,
+            imageUrl: p.imageUrl,
+            relevanceScore: p.relevanceScore,
+            reason: p.placementReason,
+          })),
+          editorialGuidance: opportunity.editorialGuidance,
+        };
+        productOpportunities++;
+      }
+    } catch (error) {
+      // Amazon failures never block the pipeline
+      console.log(`  Product intelligence skipped for "${plan.title}": ${String(error)}`);
+    }
+  }
+  console.log(`  Product opportunities detected: ${productOpportunities}/${plans.length}`);
+
   // ─── Step 6: Summary ─────────────────────────────────────────────────────
   console.log("\n[6/6] Pipeline complete.");
   const stats = await getResearchStats();

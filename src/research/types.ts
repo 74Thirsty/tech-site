@@ -65,6 +65,22 @@ export interface ArticlePlan {
     facts: string[];
     citations: Array<{ title: string; url: string; publisher: string }>;
   };
+  affiliateContext?: {
+    entities: Array<{
+      term: string;
+      intent: "DIRECT" | "SUPPORTING";
+      productType: string;
+    }>;
+    products: Array<{
+      id: string;
+      title: string;
+      price?: string;
+      imageUrl?: string;
+      relevanceScore: number;
+      reason: string;
+    }>;
+    editorialGuidance: string;
+  };
 }
 
 export interface ResearchConfig {

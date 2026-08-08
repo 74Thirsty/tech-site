@@ -996,6 +996,10 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 | `NEWS_API_KEY` | No | NewsAPI.org API key (news collector) |
 | `NEWSDATA_API_KEY` | No | NewsData.io API key (news collector) |
 | `CRYPTOPANIC_API_KEY` | No | CryptoPanic API key (crypto collector) |
+| `AMAZON_CLIENT_ID` | No | Amazon Creators API credential ID |
+| `AMAZON_CLIENT_SECRET` | No | Amazon Creators API credential secret |
+| `AMAZON_PARTNER_TAG` | No | Amazon Associates tracking tag |
+| `AMAZON_MARKETPLACE` | No | Default: `www.amazon.com` |
 
 ### Rules
 
@@ -1011,6 +1015,71 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 - `store-env.sh` prompts for and stores secrets into KDE Wallet
 - `.env.local` is gitignored; production secrets live on Vercel
 - `CRON_SECRET` is used on Vercel for scheduled jobs + programmatic API access
+
+## Amazon Product Intelligence Integration
+
+Contextual affiliate product system that detects commercial entities in articles,
+fetches relevant Amazon products, and renders them as editorial recommendations.
+
+### Architecture
+
+```
+Article Plan → Entity Detection → Query Generation → Amazon API →
+Relevance Scoring → Product Context → Article Generation → Rendering
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/amazon.ts` | Creators API client (OAuth2, SearchItems, GetItems) |
+| `src/lib/amazon-cache.ts` | Supabase product cache layer |
+| `src/affiliate/intelligence/entity-detector.ts` | Detects product-relevant entities from articles |
+| `src/affiliate/intelligence/query-generator.ts` | Generates Amazon search queries |
+| `src/affiliate/intelligence/relevance-scorer.ts` | Scores products against article context |
+| `src/affiliate/intelligence/opportunity-detector.ts` | Orchestrates the full pipeline |
+| `src/components/ProductCard.tsx` | Single product card component |
+| `src/components/ProductSidebar.tsx` | Sticky sidebar placement |
+| `src/components/ProductBottom.tsx` | Bottom placement for multiple products |
+| `src/affiliate/analytics/events.ts` | Event recording for optimization |
+| `src/app/api/jobs/refresh-products/route.ts` | Cron for price/availability refresh |
+
+### How It Works
+
+1. **Entity Detection**: Scans article title, tags, excerpt, and research facts
+   against a structured category map (80+ product categories).
+
+2. **Query Generation**: Converts detected entities into 3-5 targeted Amazon
+   search queries. Uses category refinements (SECURITY → "penetration testing").
+
+3. **Product Fetching**: Searches Amazon Creators API via cache layer.
+   Products cached in Supabase `affiliate_products` table with 22h freshness.
+
+4. **Relevance Scoring**: Scores each product (0-1) based on semantic match,
+   category match, use-case fit, data quality, and affiliate eligibility.
+   Minimum threshold: 0.4.
+
+5. **Placement Decision**: High confidence (≥0.7) + DIRECT intent → sidebar.
+   Medium confidence + multiple products → bottom. Low → no placement.
+
+6. **Article Generation**: Product context injected into the AI prompt as
+   optional guidance. Writer may reference products naturally or omit entirely.
+
+7. **Rendering**: `ProductSidebar` replaces `BookAd` when products exist.
+   `ProductBottom` renders 2-3 complementary products before footer.
+
+### Failure Behavior
+
+Every failure returns empty products. Never blocks article generation:
+- No Amazon credentials → skip product intelligence
+- Amazon API down → return cached products or empty
+- No entities detected → no affiliate context
+- No products exceed threshold → no affiliate modules
+
+### Admin Actions
+
+- `POST /api/control/affiliate` with `action: "sync-amazon"` + keywords/topic
+- `GET /api/jobs/refresh-products` (protected by auth/cron) refreshes stale prices
 
 ## Development Commands
 

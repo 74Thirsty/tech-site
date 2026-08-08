@@ -14,15 +14,16 @@ Complete reference for managing the Crystal // Forge platform.
 6. [Research Pipeline](#research-pipeline)
 7. [SEO Management](#seo-management)
 8. [Affiliate System](#affiliate-system)
-9. [User Management & Auth](#user-management--auth)
-10. [Image Pipeline](#image-pipeline)
-11. [AI Client System](#ai-client-system)
-12. [Cron Jobs](#cron-jobs)
-13. [Database Schema](#database-schema)
-14. [API Reference](#api-reference)
-15. [Environment Variables](#environment-variables)
-16. [File Reference](#file-reference)
-17. [Troubleshooting](#troubleshooting)
+9. [Amazon Product Intelligence](#amazon-product-intelligence)
+10. [User Management & Auth](#user-management--auth)
+11. [Image Pipeline](#image-pipeline)
+12. [AI Client System](#ai-client-system)
+13. [Cron Jobs](#cron-jobs)
+14. [Database Schema](#database-schema)
+15. [API Reference](#api-reference)
+16. [Environment Variables](#environment-variables)
+17. [File Reference](#file-reference)
+18. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -100,7 +101,7 @@ The review queue shows pending items awaiting approval:
 |-------|------|------|-------------|
 | `/` | `src/app/page.tsx` | Client | Homepage |
 | `/vault` | `src/app/vault/page.tsx` | Server | Article listing — static + generated articles |
-| `/vault/[slug]` | `src/app/vault/[slug]/page.tsx` | Server | Article view — hero image, mermaid, second image, footer |
+| `/vault/[slug]` | `src/app/vault/[slug]/page.tsx` | Server | Article view — hero, mermaid, products, footer |
 | `/projects` | `src/app/projects/page.tsx` | Server | War Room |
 | `/books` | `src/app/books/page.tsx` | Server | Books and field guides |
 | `/newsletter` | `src/app/newsletter/page.tsx` | Client | Newsletter — hero banner, review card, specs, past issues |
@@ -124,7 +125,7 @@ The review queue shows pending items awaiting approval:
 | `/api/control/newsletters` | GET | **Protected** | List all newsletter issues |
 | `/api/control/newsletters/[id]` | PATCH/DELETE | **Protected** | Update/delete newsletter |
 | `/api/control/seo` | GET | **Protected** | SEO analysis of all articles |
-| `/api/control/affiliate` | GET/POST | **Protected** | Affiliate programs, products, analytics |
+| `/api/control/affiliate` | GET/POST | **Protected** | Affiliate programs, products, analytics, Amazon sync |
 | `/api/control/affiliate/insights` | POST | **Protected** | AI-powered affiliate content analysis |
 | `/api/articles/generate` | POST | **Protected** | Generate articles |
 | `/api/agents` | POST | **Protected** | Run content agents |
@@ -134,6 +135,7 @@ The review queue shows pending items awaiting approval:
 | `/api/seo` | POST | **Protected** | SEO analysis |
 | `/api/jobs/research` | GET/POST | CRON_SECRET | Research job (daily 08:00 UTC) |
 | `/api/jobs/generate-articles` | GET | CRON_SECRET | Article generation (daily 10:00 UTC) |
+| `/api/jobs/refresh-products` | GET | CRON_SECRET | Refresh stale Amazon product prices |
 
 ---
 
@@ -150,7 +152,7 @@ The vault listing merges both sources. Generated articles only appear after thei
 
 Each article goes through **3 AI calls** with delays between them:
 
-1. **Generate body** — Full article following the CLAUDE.md agent spec
+1. **Generate body** — Full article following the CLAUDE.md agent spec. If Amazon products are detected, product context is injected as optional editorial guidance.
 2. **Refine intro** — Target 1200 words ±15 for the introduction
 3. **Expand deep dive** — Add code snippets, mermaid charts, remove cross-section repetition
 
@@ -161,8 +163,10 @@ Title → Byline ("by c. e. hirschauer") → Hero Image (Pexels)
 → Intro (~1200 words ±15)
 → THE DEEP DIVE (600-800 words with code + mermaid)
 → PRINCIPLES → IN PRACTICE
-→ Book Ad Banner
+→ Product Recommendation (if Amazon products match topic) or Book Ad Banner
 → LIVE SIGNALS → ANTIPATTERNS → CHECKLIST → YOUR MOVE
+→ Product Bottom Module (if multiple products match)
+→ Footer
 ```
 
 #### Live Signals Fix
@@ -174,7 +178,8 @@ When no live signals match: "Sources monitored in real time. No breaking events 
 1. **Hero image** — Pexels image matched to article category
 2. **Mermaid diagram** — Category-specific chart at ~33% of body
 3. **Second image** — Pexels image matched to article tags at ~66%
-4. **Footer banner** — Animated SVG with Crystal // Forge logo, social links, donate button
+4. **Product recommendation** — If Amazon products match the article topic (ProductSidebar replaces BookAd when products exist)
+5. **Footer banner** — Animated SVG with Crystal // Forge logo, social links, donate button
 
 ### Topic Selection
 
@@ -311,6 +316,8 @@ The page displays:
 4. **Classification** — Auto-tag with taxonomy (150+ keywords)
 5. **Ranking** — Score by relevance, audience fit, timing, business value
 6. **AI Analysis** — Analyze top groups for significance
+7. **Article Planning** — Generate article plans from top-scoring research
+8. **Product Intelligence** — Detect commercial entities, fetch Amazon products (if configured)
 
 ### Research Tab (Control Panel)
 
@@ -381,7 +388,7 @@ Ranks all articles by SEO score. Score formula:
 
 ### Overview
 
-Monetization system that recommends products because they genuinely help the reader, not just for commission.
+Monetization system that recommends products because they genuinely help the reader, not just for commission. Includes both manual product management and automated Amazon product intelligence.
 
 ### Affiliate Tab (Control Panel)
 
@@ -413,7 +420,7 @@ Product library with:
 | Affiliate URL | Your affiliate link |
 | Topics | Comma-separated topic tags |
 
-Products are matched to articles/newsletters by topic overlap.
+Products are matched to articles/newsletters by topic overlap. Amazon products are automatically cached and refreshed.
 
 #### Analytics
 
@@ -517,6 +524,110 @@ CREATE POLICY "service_role_all" ON affiliate_insights FOR ALL USING (true) WITH
 
 ---
 
+## Amazon Product Intelligence
+
+### Overview
+
+Contextual affiliate product system that detects commercial entities in articles, fetches relevant Amazon products via the Creators API, and renders them as editorial recommendations. Products appear only when genuinely useful to the reader — never turning articles into advertisements.
+
+### Architecture
+
+```
+Article Plan → Entity Detection → Query Generation → Amazon API →
+Relevance Scoring → Product Context → Article Generation → Rendering
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/amazon.ts` | Creators API client (OAuth2, SearchItems, GetItems, rate limiting) |
+| `src/lib/amazon-cache.ts` | Supabase product cache layer (22h freshness) |
+| `src/affiliate/intelligence/entity-detector.ts` | Detects 80+ product-relevant entities from articles |
+| `src/affiliate/intelligence/query-generator.ts` | Generates targeted Amazon search queries |
+| `src/affiliate/intelligence/relevance-scorer.ts` | 5-factor weighted product scoring (0-1) |
+| `src/affiliate/intelligence/opportunity-detector.ts` | Full pipeline orchestrator |
+| `src/components/ProductCard.tsx` | Dark-themed product card with affiliate tracking |
+| `src/components/ProductSidebar.tsx` | Sticky sidebar for single high-confidence product |
+| `src/components/ProductBottom.tsx` | Grid for 2-3 complementary products |
+| `src/affiliate/analytics/events.ts` | Decision chain event recording |
+| `src/app/api/jobs/refresh-products/route.ts` | Cron for price/availability refresh |
+
+### How It Works
+
+1. **Entity Detection** (`entity-detector.ts`): Scans article title, tags, excerpt, and research facts against a structured category map (80+ product categories across networking, storage, security tools, hardware, books, peripherals). Classifies intent as DIRECT (reader needs this), SUPPORTING (improves workflow), or INCIDENTAL (filtered out).
+
+2. **Query Generation** (`query-generator.ts`): Converts detected entities into 3-5 targeted Amazon search queries. Applies category refinements (e.g., SECURITY category adds "penetration testing" to tool queries).
+
+3. **Product Fetching** (`amazon-cache.ts` → `amazon.ts`): Searches Amazon Creators API via cache layer. Products cached in Supabase `affiliate_products` table with 22-hour freshness window. Falls back to stale cache on API failure.
+
+4. **Relevance Scoring** (`relevance-scorer.ts`): Scores each product 0-1 based on five weighted factors:
+   - Semantic match (30%) — title/description overlap with entity
+   - Category match (20%) — product category vs article category
+   - Use-case fit (25%) — product features vs entity purpose
+   - Data quality (15%) — has image, price, rating
+   - Affiliate eligibility (10%) — has tracking URL, is in stock
+   - Minimum threshold: 0.4
+
+5. **Placement Decision** (`opportunity-detector.ts`):
+   - High confidence (≥0.7) + DIRECT intent → sidebar
+   - Medium confidence + multiple products → bottom
+   - Low relevance → no affiliate module
+
+6. **Article Generation** (`generator.ts`): Product context injected into the AI prompt as optional editorial guidance. Writer may reference products naturally or omit entirely.
+
+7. **Rendering** (`vault/[slug]/page.tsx`):
+   - `ProductSidebar` replaces `BookAd` when products exist
+   - `ProductBottom` renders 2-3 complementary products before footer
+   - Falls back to `BookAd` when no products match
+   - All product links go through `/api/affiliate/click` for tracking
+
+### Setup
+
+Add Amazon Creators API credentials to `.env.local`:
+
+```
+AMAZON_CLIENT_ID=your_credential_id
+AMAZON_CLIENT_SECRET=your_credential_secret
+AMAZON_PARTNER_TAG=your_tracking_tag-20
+AMAZON_MARKETPLACE=www.amazon.com
+```
+
+**Prerequisites**: Amazon Associates account with 10+ qualifying sales in trailing 30 days.
+
+### Admin Actions
+
+**Manual product sync** (from control panel or API):
+```json
+POST /api/control/affiliate
+{"action": "sync-amazon", "keywords": ["USB ethernet adapter"], "topic": "NETWORKING"}
+```
+
+**Refresh stale prices** (cron or manual):
+```
+GET /api/jobs/refresh-products
+Authorization: Bearer <CRON_SECRET>
+```
+
+### Failure Behavior
+
+Every failure returns empty products. Never blocks article generation:
+- No Amazon credentials → skip product intelligence
+- Amazon API down → return cached products or empty
+- No entities detected → no affiliate context
+- No products exceed threshold → no affiliate modules
+- Cache stale → still return stale data (better than nothing)
+
+### Product Freshness
+
+Amazon requires data freshness within 24 hours. The system:
+- Caches products with `created_at` timestamp
+- `findOrFetchProducts()` returns fresh products (≤22h) from cache
+- Stale products re-fetched automatically via `/api/jobs/refresh-products`
+- Manual refresh available via admin API
+
+---
+
 ## User Management & Auth
 
 ### Authentication Methods
@@ -553,6 +664,7 @@ When configured, users are managed through Supabase Auth. The login page sends J
 - `/api/images/generate`
 - `/api/seo`
 - `/api/jobs/generate-articles`
+- `/api/jobs/refresh-products`
 
 #### Public (no auth required)
 - `/api/affiliate/click`
@@ -561,7 +673,6 @@ When configured, users are managed through Supabase Auth. The login page sends J
 - `/api/newsletter`
 - `/api/analytics`
 - `/api/search`
-- `/api/jobs/research` (requires CRON_SECRET)
 
 #### Cron/Programmatic Access
 
@@ -634,12 +745,13 @@ These are read at runtime and injected into AI prompts.
 
 ## Cron Jobs
 
-Two cron jobs run on Vercel:
+Three cron jobs run on Vercel:
 
 | Job | Schedule | Endpoint | Description |
 |-----|----------|----------|-------------|
 | Research | Daily 08:00 UTC | `/api/jobs/research` | Collects from 9 sources, stores in Supabase, prunes >48h data |
 | Article Generation | Daily 10:00 UTC | `/api/jobs/generate-articles` | Generates 1 article if fewer than 2 scheduled for next 7 days |
+| Product Refresh | Daily 04:00 UTC | `/api/jobs/refresh-products` | Refreshes stale Amazon product prices (22h+ freshness window) |
 
 ### Vercel Configuration
 
@@ -647,7 +759,8 @@ Two cron jobs run on Vercel:
 {
   "crons": [
     {"path": "/api/jobs/research", "schedule": "0 8 * * *"},
-    {"path": "/api/jobs/generate-articles", "schedule": "0 10 * * *"}
+    {"path": "/api/jobs/generate-articles", "schedule": "0 10 * * *"},
+    {"path": "/api/jobs/refresh-products", "schedule": "0 4 * * *"}
   ]
 }
 ```
@@ -660,6 +773,14 @@ The daily article generation job:
 1. Checks Supabase for articles with `published_at` in the next 7 days
 2. If fewer than 2 are scheduled, generates 1 new article
 3. Article gets a `published_at` date for today 09:00 UTC
+
+### Product Refresh Logic
+
+The daily product refresh job:
+1. Fetches all enabled products from `affiliate_products` where `created_at` is >22h old
+2. Re-fetches current price/availability via Amazon `getItems()` API
+3. Updates cached data with fresh timestamps
+4. Caps at 10 products per refresh cycle to avoid rate limits
 
 ---
 
@@ -678,10 +799,11 @@ The daily article generation job:
 | `job_runs` | Job execution log |
 | `subscribers` | Newsletter subscribers |
 | `affiliate_programs` | Affiliate network configurations |
-| `affiliate_products` | Product library |
+| `affiliate_products` | Product library (manual + Amazon cached) |
 | `affiliate_clicks` | Click tracking |
 | `affiliate_conversions` | Conversion tracking |
 | `affiliate_insights` | AI-generated insights |
+| `affiliate_events` | Product intelligence decision chain events |
 
 ### Core Tables
 
@@ -732,6 +854,19 @@ language      text        DEFAULT 'en'
 image         text
 sentiment     numeric
 created_at    timestamptz DEFAULT now()
+```
+
+#### affiliate_events
+
+```sql
+article_slug      text        NOT NULL
+entity            text        NOT NULL
+intent            text        NOT NULL
+queries           text[]      NOT NULL DEFAULT '{}'
+selected_products text[]      NOT NULL DEFAULT '{}'
+relevance_score   numeric     NOT NULL DEFAULT 0
+placements        text[]      NOT NULL DEFAULT '{}'
+timestamp         timestamptz NOT NULL DEFAULT now()
 ```
 
 ---
@@ -828,6 +963,7 @@ Returns affiliate programs, products, stats, and insights.
 {"action": "update-product", "id": "...", "updates": {...}}
 {"action": "delete-product", "id": "..."}
 {"action": "add-insight", "insight": {...}}
+{"action": "sync-amazon", "keywords": ["usb ethernet adapter"], "topic": "NETWORKING"}
 ```
 
 ### POST /api/control/affiliate/insights
@@ -869,6 +1005,20 @@ Runs research pipeline. Requires CRON_SECRET.
 
 Auto-generates articles. Requires CRON_SECRET.
 
+### GET /api/jobs/refresh-products
+
+Refreshes stale Amazon product prices. Requires CRON_SECRET.
+
+**Response:**
+```json
+{
+  "success": true,
+  "refreshed": 5,
+  "failed": 0,
+  "timestamp": "2026-08-07T04:00:00.000Z"
+}
+```
+
 ---
 
 ## Environment Variables
@@ -892,6 +1042,13 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 | `PUTERJS_API_KEY` | No | Puter AI API key |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key |
 | `GROQ_API_KEY` | No | Groq API key |
+| `NEWS_API_KEY` | No | NewsAPI.org API key (news collector) |
+| `NEWSDATA_API_KEY` | No | NewsData.io API key (news collector) |
+| `CRYPTOPANIC_API_KEY` | No | CryptoPanic API key (crypto collector) |
+| `AMAZON_CLIENT_ID` | No | Amazon Creators API credential ID |
+| `AMAZON_CLIENT_SECRET` | No | Amazon Creators API credential secret |
+| `AMAZON_PARTNER_TAG` | No | Amazon Associates tracking tag |
+| `AMAZON_MARKETPLACE` | No | Default: `www.amazon.com` |
 
 ### Rules
 
@@ -930,12 +1087,32 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 
 | File | Purpose |
 |------|---------|
-| `src/intelligence/pipeline.ts` | Research pipeline orchestration |
-| `src/research/pipeline.ts` | Research pipeline (alternative) |
+| `src/research/pipeline.ts` | Research pipeline (collection → analysis → planning → product intelligence) |
 | `src/research/knowledge-base.ts` | Supabase CRUD for research data + 48h pruning |
 | `src/research/planner.ts` | Editorial queue scoring |
 | `src/research/analyzer.ts` | AI research analysis |
 | `src/intelligence/collectors/*.ts` | Individual data collectors |
+
+### Amazon Product Intelligence
+
+| File | Purpose |
+|------|---------|
+| `src/lib/amazon.ts` | Creators API client — OAuth2, SearchItems, GetItems, rate limiting |
+| `src/lib/amazon-cache.ts` | Supabase cache layer — findOrFetchProducts, refreshStaleProducts |
+| `src/affiliate/intelligence/entity-detector.ts` | Product entity detection — 80+ categories, intent classification |
+| `src/affiliate/intelligence/query-generator.ts` | Amazon search query generation |
+| `src/affiliate/intelligence/relevance-scorer.ts` | 5-factor weighted product scoring |
+| `src/affiliate/intelligence/opportunity-detector.ts` | Full pipeline orchestrator |
+| `src/affiliate/analytics/events.ts` | Decision chain event recording |
+
+### Affiliate System
+
+| File | Purpose |
+|------|---------|
+| `src/lib/affiliate.ts` | Affiliate CRUD, click tracking, analytics (19 functions) |
+| `src/app/api/affiliate/click/route.ts` | Public click tracking + redirect endpoint |
+| `src/app/api/control/affiliate/route.ts` | Admin affiliate management + Amazon sync |
+| `src/app/api/control/affiliate/insights/route.ts` | AI affiliate insights |
 
 ### Control Panel
 
@@ -956,7 +1133,7 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 |------|---------|
 | `src/app/page.tsx` | Homepage |
 | `src/app/vault/page.tsx` | Article listing |
-| `src/app/vault/[slug]/page.tsx` | Article view — hero, mermaid, images, footer |
+| `src/app/vault/[slug]/page.tsx` | Article view — hero, mermaid, products, footer |
 | `src/app/newsletter/page.tsx` | Newsletter — hero, review card, specs, past issues |
 | `src/app/podcast/page.tsx` | Podcast episodes |
 | `src/app/books/page.tsx` | Books |
@@ -974,6 +1151,8 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 | `src/lib/pexels.ts` | Pexels image search |
 | `src/lib/env.ts` | Environment variable access |
 | `src/lib/affiliate.ts` | Affiliate CRUD, click tracking, analytics |
+| `src/lib/amazon.ts` | Amazon Creators API client |
+| `src/lib/amazon-cache.ts` | Amazon product cache layer |
 | `src/lib/generated-articles.ts` | Supabase CRUD for generated articles |
 | `src/lib/rate-limit.ts` | In-memory rate limiter |
 | `src/lib/content.ts` | Content type definitions |
@@ -986,6 +1165,10 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 | `src/components/MermaidDiagram.tsx` | Mermaid.js renderer |
 | `src/components/ArticleImage.tsx` | Pexels image wrapper |
 | `src/components/ArticleFooter.tsx` | Animated SVG footer banner |
+| `src/components/BookAd.tsx` | Static book ad (fallback when no Amazon products) |
+| `src/components/ProductCard.tsx` | Amazon product card with affiliate tracking |
+| `src/components/ProductSidebar.tsx` | Sticky sidebar for single high-confidence product |
+| `src/components/ProductBottom.tsx` | Grid for 2-3 complementary products |
 
 ### Cron & Jobs
 
@@ -993,7 +1176,7 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 |------|---------|
 | `src/app/api/jobs/research/route.ts` | Research cron — daily 08:00 UTC |
 | `src/app/api/jobs/generate-articles/route.ts` | Article cron — daily 10:00 UTC |
-| `src/jobs/research-job.ts` | Research job runner with pruning |
+| `src/app/api/jobs/refresh-products/route.ts` | Product refresh cron — daily 04:00 UTC |
 | `vercel.json` | Cron schedules |
 
 ### Config
@@ -1071,3 +1254,21 @@ The canonical list is AUTHORITATIVE. Do not invent new env var names or rename e
 **Cause**: Pexels API not configured or rate limited.
 
 **Solution**: Ensure `PEXELS_API_KEY` is set in Vercel env.
+
+### Amazon products not appearing in articles
+
+**Cause**: Amazon Creators API credentials not configured, or article topic has no matching product entities.
+
+**Solution**: Ensure `AMAZON_CLIENT_ID`, `AMAZON_CLIENT_SECRET`, and `AMAZON_PARTNER_TAG` are set in Vercel env. Check that the article's tags/category match entities in the detector's 80+ category map.
+
+### Amazon API returns errors
+
+**Cause**: Invalid credentials, rate limiting, or Amazon API outage.
+
+**Solution**: Verify credentials are correct. The system falls back to cached products or empty — article generation is never blocked. Check `/api/jobs/refresh-products` logs for details.
+
+### Product prices are stale
+
+**Cause**: `/api/jobs/refresh-products` cron not running, or Amazon API failures.
+
+**Solution**: Ensure the refresh-products cron is configured in `vercel.json`. Manually trigger via `GET /api/jobs/refresh-products` with CRON_SECRET header. Products remain functional with stale data but prices may be inaccurate.
